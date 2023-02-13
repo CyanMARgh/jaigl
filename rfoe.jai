@@ -1,21 +1,17 @@
 #import "Basic";
-#import "String";
-
-// to_c_string :: (s: string) -> *u8 {
-// 	result := cast(*u8) alloc(s.count + 1);
-// 	memcpy(result, s.data, s.count);
-// 	result[s.count] = 0;
-
-// 	return result;
-// }
+#import "Basic";
+// #import "Compiler";
+// #import "String";
+// #import "stb_image";
 
 main :: () {
-	// c_str := to_c_string("abcdaf");
+	// x, y, comp : s32;
+	// cstr_path := to_c_string("test.png");
+	// data := stbi_load(cstr_path, *x, *y, *comp, 3);
 
-	str : [5]s8 = s8.[#char"a", #char"a", #char"a", 0, 0];
-	str_2 : string;
-	str_2.data = cast(*u8) *str;
-	str_2.count = 4;
+	// print("x = %, y = %\n", x, y);
 
-	print("%", str_2);
+	// data :[]u8= .[xx #char "a", xx #char "b", xx #char "c", xx 0, xx #char "d"];
+	// str := to_string(data.data);
+	// print("%\n", str);
 }
