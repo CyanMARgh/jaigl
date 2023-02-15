@@ -59,3 +59,6 @@ find_id :: (s : *Shader, field : string) -> s32 {
 set :: (s : *Shader, field : string, value : float) {
 	glUniform1f(find_id(s, field), value);
 }
+set :: (s : *Shader, field : string, value : Matrix4) {
+	glUniformMatrix4fv(find_id(s, field), 1, GL_TRUE, xx *value);
+}

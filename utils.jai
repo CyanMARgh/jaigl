@@ -1,3 +1,4 @@
+vec4 :: Vector4;
 vec3 :: Vector3;
 vec2 :: Vector2;
 

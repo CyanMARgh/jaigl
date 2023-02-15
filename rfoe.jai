@@ -1,17 +1,19 @@
 #import "Basic";
-#import "Basic";
-// #import "Compiler";
-// #import "String";
-// #import "stb_image";
+#import "Math";
 
 main :: () {
-	// x, y, comp : s32;
-	// cstr_path := to_c_string("test.png");
-	// data := stbi_load(cstr_path, *x, *y, *comp, 3);
+	ws := Vector2.{1.5, 1};
+	screen_matrix := make_frustum_matrix(-ws.x / ws.y, ws.x / ws.y, -1, 1, 0.1, 100, true);
 
-	// print("x = %, y = %\n", x, y);
+	for f, i : screen_matrix.floats {
+		print("%\t\t", f);
+		if i % 4 == 3 print("\n");
+	}
+	// x := 10;
+	// y := *x;
+	// print("%\n", y[0]);
+	// file_data, ok := read_entire_file("scene.fbx");
+	// if !ok exit(-1);
+	// scene := ofbx.load(file_data.data, file_data.count, .{}, .{});
 
-	// data :[]u8= .[xx #char "a", xx #char "b", xx #char "c", xx 0, xx #char "d"];
-	// str := to_string(data.data);
-	// print("%\n", str);
 }
