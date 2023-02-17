@@ -11,6 +11,7 @@
 	target_options := get_build_options(w);
 	{
 		using target_options;
+
 		// optimization_level = .RELEASE;
 		// write_added_strings = false;
 		// stack_trace = false; 

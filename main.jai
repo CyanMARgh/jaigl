@@ -1,5 +1,6 @@
-#import "Basic";
-#import "String";
+#import "Basic"()(MEMORY_DEBUGGER=true);
+#import "X11";
+
 #import "Window_Creation";
 Input :: #import "Input";
 #import "Math";
@@ -99,12 +100,36 @@ check_gl_error :: (str := "-") {
 	if err print("error(%) = %\n", str, err);
 }
 
+#run {
+	#if OS == .WINDOWS {
+		#import "Windows_Resources";
+		disable_runtime_console();
+		print("nice cock!");
+	}
+}
+
+
 main :: () {
+	defer report_memory_leaks();
+
+	mesh_raw_soa, ok := load_obj("6th_platonic_solid.obj");
+	if !ok exit(1);
+	// if ok print_mesh_raw_soa(mesh_raw_soa);
+	prepare(*mesh_raw_soa);
+	// print_mesh_raw_soa(mesh_raw_soa);
+	defer clear_mesh_raw(mesh_raw_soa);
+
 	window := create_window(1200, 800, "name here");
 	simp.set_render_target(window);
 	camera : Camera;
 
-	mesh := make_mesh(cube_src, Point_UV); defer clear_mesh(mesh);
+	// mesh := make_mesh(cube_src, Point_UV); defer clear_mesh(mesh);
+	// mesh_src := load_obj("6th_platonic_solid.obj"); defer clear_mesh_raw(mesh_src);
+	// print("size = %/%\n", mesh_src.points.count, mesh_src.indices.count);
+	// print_mesh_raw_soa(mesh_raw_soa);
+
+	mesh := make_mesh_soa(mesh_raw_soa); defer clear_mesh(mesh);
+
 	shader := make_shader_vf(SRC_VERT, SRC_JUST_TEXTURE_FRAG); defer clear_shader(*shader);
 	texture := load_texture("test.png"); defer clear_texture(texture);
 
@@ -130,6 +155,7 @@ main :: () {
 		draw(mesh);
 
 		simp.swap_buffers(window);
+		reset_temporary_storage();
 	}
 }
 

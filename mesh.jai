@@ -1,16 +1,6 @@
-Point_UV :: struct {
-	pos : vec3;
-	uv : vec2;
-}
-Point_Colored :: struct {
-	pos : vec3;
-	color : vec3;
-	// uv : vec2;
-	// norm : vec3;
-}
-Mesh_Raw :: struct {
-	points : []float;
-	indices : []u32;
+clear_mesh_raw :: (using mesh : Mesh_Raw) {
+	array_free(points);
+	array_free(indices);
 }
 Mesh :: struct {
 	vao, vbo, ebo : u32;
@@ -22,6 +12,42 @@ add_attribs :: ($T : Type) {
 		glVertexAttribPointer(xx i, xx (m.type.runtime_size / size_of(float)), GL_FLOAT, GL_FALSE, size_of(T), cast(*void) m.offset_in_bytes);
 		glEnableVertexAttribArray(xx i);
 	}
+}
+make_mesh_soa :: (mesh_raw_soa : Mesh_Raw_SOA, draw_mode := GL_STATIC_DRAW) -> Mesh {
+	using mesh : Mesh;
+
+	has_ebo = xx mesh_raw_soa.indices;
+	points_count = cast(u32) mesh_raw_soa.points.count;
+	indices_count = cast(u32) mesh_raw_soa.indices.count;
+
+	glGenVertexArrays(1, *vao);
+	glGenBuffers(1, *vbo);
+	glBindVertexArray(vao);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+
+	if has_ebo {
+		glGenBuffers(1, *ebo);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh_raw_soa.indices.count * size_of(u32), mesh_raw_soa.indices.data, xx draw_mode);
+	}
+
+	s_points := mesh_raw_soa.points.count * size_of(vec3);
+	s_uvs    := mesh_raw_soa.uvs.count * size_of(vec2);
+	vbo_size := s_points + s_uvs;
+	glBufferData(GL_ARRAY_BUFFER, vbo_size, null, xx draw_mode);
+
+	glBufferSubData(GL_ARRAY_BUFFER, 0, s_points, mesh_raw_soa.points.data);
+	//                    i
+	glVertexAttribPointer(0, xx (size_of(vec3) / size_of(float)), GL_FLOAT, GL_FALSE, 0, cast(*void) 0);
+	glEnableVertexAttribArray(0);
+
+	glBufferSubData(GL_ARRAY_BUFFER, 0, s_uvs, mesh_raw_soa.points.data);
+	//                    i
+	glVertexAttribPointer(1, xx (size_of(vec2) / size_of(float)), GL_FLOAT, GL_FALSE, 0, cast(*void) s_points);
+	glEnableVertexAttribArray(1);
+
+	glBindVertexArray(0);
+	return mesh;
 }
 make_mesh :: (mesh_raw : Mesh_Raw, $ptype : Type, draw_mode := GL_STATIC_DRAW) -> Mesh {
 	using mesh : Mesh;
