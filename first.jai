@@ -1,5 +1,6 @@
 #import "Basic";
 #import "Compiler";
+#import "Process";
 
 #run {
 	w := compiler_create_workspace("Target Program");
@@ -27,11 +28,27 @@
 		// llvm_options.code_gen_optimization_level = 3;
 		// llvm_options.enable_split_modules = false;
 
+        
+        // enable_bytecode_inliner = true;
+        // enable_frame_pointers   = false;
+
 		output_executable_name = "main";
 	}
 
 	set_build_options(target_options, w);
-	add_build_file(tprint("%/main.jai", #filepath), w);
+
+	compiler_begin_intercept(w);
+	add_build_file(tprint("%/main.jai", #filepath), w); // up 2
+
+	while 1 {
+		message := compiler_wait_for_message();
+		if message.kind == {
+			case .COMPLETE;
+			run_command("tar", "czf", "result.tar.gz", "main", "test.png", "6th_platonic_solid.obj");
+			break;
+		}
+	}
+	compiler_end_intercept(w);	
 
 	set_build_options_dc(.{do_output=false});
 }

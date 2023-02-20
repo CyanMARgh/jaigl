@@ -1,4 +1,4 @@
-#import "Basic"()(MEMORY_DEBUGGER=true);
+#import "Basic";//()(MEMORY_DEBUGGER=true);
 #import "X11";
 
 #import "Window_Creation";
@@ -20,6 +20,7 @@ getrect :: #import "GetRect";
 #load "texture.jai";
 #load "load_obj.jai";
 #load "camera.jai";
+#load "particles.jai";
 
 
 should_exit := false;
@@ -104,34 +105,22 @@ check_gl_error :: (str := "-") {
 	#if OS == .WINDOWS {
 		#import "Windows_Resources";
 		disable_runtime_console();
-		print("nice cock!");
 	}
 }
 
 
-main :: () {
-	defer report_memory_leaks();
-
+demo_0 :: () {
 	mesh_raw_soa, ok := load_obj("6th_platonic_solid.obj");
 	if !ok exit(1);
-	// if ok print_mesh_raw_soa(mesh_raw_soa);
 	prepare(*mesh_raw_soa);
-	// print_mesh_raw_soa(mesh_raw_soa);
 	defer clear_mesh_raw(mesh_raw_soa);
 
 	window := create_window(1200, 800, "name here");
 	simp.set_render_target(window);
 	camera : Camera;
 
-	// mesh := make_mesh(cube_src, Point_UV); defer clear_mesh(mesh);
-	// mesh_src := load_obj("6th_platonic_solid.obj"); defer clear_mesh_raw(mesh_src);
-	// print("size = %/%\n", mesh_src.points.count, mesh_src.indices.count);
-	// print_mesh_raw_soa(mesh_raw_soa);
-
 	mesh := make_mesh_soa(mesh_raw_soa); defer clear_mesh(mesh);
-
-	shader := make_shader_vf(SRC_VERT, SRC_JUST_TEXTURE_FRAG); defer clear_shader(*shader);
-	texture := load_texture("test.png"); defer clear_texture(texture);
+	shader := make_shader_vf(SRC_VERT, SRC_DRAW_NORMALS_FRAG); defer clear_shader(*shader);
 
 	time := current_time_monotonic();
 	while !should_exit {
@@ -147,11 +136,10 @@ main :: () {
 
 		glClear(GL_DEPTH_BUFFER_BIT);
 		glEnable(GL_DEPTH_TEST);
+		glEnable(GL_CULL_FACE);
 
 		use(shader);
-			bind(texture, 0);
 			set(*shader, "u_transform", get_transform(*camera, .{1200, 800}));
-			// set(*shader, "u_blue", .5);
 		draw(mesh);
 
 		simp.swap_buffers(window);
@@ -159,3 +147,59 @@ main :: () {
 	}
 }
 
+camera_rail :: (using camera : *Camera, t : float) {
+	yaw, pitch = t * .2, 0;
+	position = rotate(vec3.{0, 0, 3}, Quaternion.{0, sin(yaw / 2), 0, cos(yaw / 2)});
+}
+
+demo_1 :: () {
+	mesh_raw_soa := generate_particle_cloud(.{}, 4, 10000);
+	// prepare(*mesh_raw_soa);
+	defer clear_mesh_raw(mesh_raw_soa);
+
+	window := create_window(1200, 800, "name here");
+	simp.set_render_target(window);
+	camera : Camera;
+
+	mesh := make_mesh_soa(mesh_raw_soa); defer clear_mesh(mesh);
+	// shader := make_shader_vf(SRC_VERT, SRC_DRAW_NORMALS_FRAG); defer clear_shader(*shader);
+	shader := make_shader_vgf(SRC_PARTICLE_VERT, SRC_PARTICLE_GEOM,
+		SRC_PARTICLE_FRAG); defer clear_shader(*shader);
+
+	time := current_time_monotonic();
+	time0 := time;
+
+	while !should_exit {
+		new_time := current_time_monotonic();
+		dt := to_float64_seconds(new_time - time); time = new_time;
+		current_time := to_float64_seconds(new_time - time0);
+
+		Input.update_window_events();
+
+		camera_rail(*camera, xx current_time);
+		// move_camera(*camera, xx dt);
+
+		for Input.events_this_frame handle_event(it);
+
+		simp.clear_render_target(.0, .0, .2, 1);
+
+		glClear(GL_DEPTH_BUFFER_BIT);
+		
+		glDepthMask(GL_FALSE);	
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+		// glEnable(GL_DEPTH_TEST);
+		// glEnable(GL_CULL_FACE);
+
+		use(shader);
+			set(*shader, "u_transform", get_transform(*camera, .{1200, 800}));
+		draw(mesh, GL_POINTS);
+
+		simp.swap_buffers(window);
+		reset_temporary_storage();
+	}
+}
+
+main :: () {
+	demo_1();
+}

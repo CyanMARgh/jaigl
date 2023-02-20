@@ -40,6 +40,23 @@ make_shader_vf :: (src_vert : string, src_frag : string) -> Shader {
 
 	return shader;
 }
+make_shader_vgf :: (src_vert : string, src_geom : string, src_frag : string) -> Shader {
+	vert := make_shader_part(src_vert, GL_VERTEX_SHADER); defer clear_shader_part(vert);
+	geom := make_shader_part(src_geom, GL_GEOMETRY_SHADER); defer clear_shader_part(geom);
+	frag := make_shader_part(src_frag, GL_FRAGMENT_SHADER); defer clear_shader_part(frag);
+
+	id := glCreateProgram();
+	glAttachShader(id, vert.id);
+	glAttachShader(id, geom.id);
+	glAttachShader(id, frag.id);
+	glLinkProgram(id);
+	print("linking done\n");
+
+	shader := Shader.{id = id};
+	init(*shader.fields);
+
+	return shader;
+}
 clear_shader :: (using s : *Shader) {
 	glDeleteProgram(id);
 	deinit(*fields);

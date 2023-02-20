@@ -1,6 +1,8 @@
 #import "Random";
 #import "File";
 #import "String";
+#import "Hash_Table";
+#import "Hash";
 
 Point :: struct {
 	pos : vec3;
@@ -19,84 +21,79 @@ Mesh_Raw :: struct {
 	indices : []u32;
 }
 
-
-Face :: struct {
-	// [3]coord + ([3]uv) + ([3]normal)
-	type : Ftype;
-	Ftype :: enum_flags u8 {
-		P       :: 0b_001;
-		UV      :: 0b_011;
-		N       :: 0b_101;
-		UVN     :: 0b_111;
-		INVALID :: 0b_000;
-	};
-	ids : [9]int;
+Ftype :: enum_flags u8 {
+	P       :: 0b_001;
+	UV      :: 0b_011;
+	N       :: 0b_101;
+	UVN     :: 0b_111;
+	INVALID :: 0b_000;
 }
-size :: (f : Face) -> s64 {
-	if #complete f.type == {
-		case .P;
-		return 1;
-		case .UV;
-		return 2;
-		case .N;
-		return 2;
-		case .UVN;
-		return 3;
-		case .INVALID;
-		return 0;
-	}
+Vertice :: struct {
+	ids : [3]int;
+	type := Ftype.INVALID;
+}
+Face :: struct {
+	MAX_POINTS :: 6;
+
+	ids : [MAX_POINTS * 3]int;
+	count : u8;
+	type := Ftype.INVALID;
 }
 Mesh_Raw_SOA :: struct {
 	points  : []vec3;
-	uvs     : []vec2; //TODO replace with uvw
+	uvs     : []vec2;
 	normals : []vec3;
 	union {
 		faces : []Face;
 		indices : []u32;
 	}
-	most_general := Face.Ftype.INVALID;
-	splitted_vertices := false;
+	most_general := Ftype.INVALID;
 	gl_ready := false;
 }
 print_mesh_raw_soa :: (using mesh : Mesh_Raw_SOA) {
-	for p, i : points {
-		print("v(%) % % %\n", i, p.x, p.y, p.z);
-	}
-	print("\n");
-	for uv, i : uvs {
-		print("vt(%) % %\n", i, uv.x, uv.y);
-	}
-	print("\n");
-	for n, i : normals {
-		print("vn(%) % % %\n", i, n.x, n.y, n.z);
-	}
-	print("\n");
-	if !gl_ready {
-		for f : faces {
-			using f;
-			if type == {
-				case .P;
-				print("f % % %\n", ids[0], ids[3], ids[6]);
-				case .UV;
-				print("f %/% %/% %/%\n", ids[0], ids[1], ids[3], ids[4], ids[6], ids[7]);
-				case .N;
-				print("f %//% %//% %//%\n", ids[0], ids[2], ids[3], ids[5], ids[6], ids[8]);
-				case .UVN;
-				print("f %/%/% %/%/% %/%/%\n", ids[0], ids[1], ids[2], ids[3], ids[4], ids[5], ids[6], ids[7], ids[8]);
+	if false {
+		for p, i : points {
+			print("v(%) % % %\n", i, p.x, p.y, p.z);
+		}
+		print("\n");
+		for uv, i : uvs {
+			print("vt(%) % %\n", i, uv.x, uv.y);
+		}
+		print("\n");
+		for n, i : normals {
+			print("vn(%) % % %\n", i, n.x, n.y, n.z);
+		}
+		print("\n");
+		if !gl_ready {
+			for f : faces {
+				using f;
+				fmt := ifx type == .P " %1" else ifx type == .UV " %1/%2" else ifx type == .N " %1//%3" else " %1/%2/%3"; 
+				// fmt := "[%1 %2 %3]";
+				print("f");
+				for i : 0..count-1 {
+					print(fmt, ids[i * 3], ids[i * 3 + 1], ids[i * 3 + 2]);
+				}
+				print("\n");
+			}
+		} else {
+			for t : 0..(indices.count/3-1) {
+				print("f [% % %]\n", mesh.indices[t * 3], mesh.indices[t * 3 + 1], mesh.indices[t * 3 + 2]);
 			}
 		}
-	} else {
-		for t : 0..(indices.count/3-1) {
-			print("f [% % %]\n", mesh.indices[t * 3], mesh.indices[t * 3 + 1], mesh.indices[t * 3 + 2]);
-		}
+		if indices.count print("\n");
 	}
-	print("\npoints: %, uvs: %, normals: %, faces: %\nis_spliied: %\ntype: %\n", points.count, uvs.count, normals.count, faces.count, splitted_vertices, most_general);
+	print("points: %, uvs: %, normals: %, faces/indices: %\ntype: %\ngl_ready: %\n\n",
+		points.count, uvs.count, normals.count, faces.count, most_general, gl_ready);
 }
 clear_mesh_raw :: (using mesh : Mesh_Raw_SOA) {
 	array_free(points);
 	array_free(uvs);
 	array_free(normals);
-	array_free(faces);
+	if gl_ready {
+		array_free(indices);
+	} else {
+		array_free(faces);
+	}
 }
 
 load_obj :: (obj_path: string) -> Mesh_Raw_SOA, bool {
@@ -112,19 +109,7 @@ load_obj :: (obj_path: string) -> Mesh_Raw_SOA, bool {
 	uvs : [..]vec2;
 	normals : [..]vec3;
 	faces : [..]Face;
-	splitted_vertices := false;
-	most_general := Face.Ftype.INVALID;
-
-	check_if_splitted :: (f : Face, sv : *bool) {
-		if <<sv return;
-		s := size(f);
-		if f.type & .UV & 6 {
-			<<sv |= f.ids[0] != f.ids[1] || f.ids[3] != f.ids[4] || f.ids[6] != f.ids[7];
-		}
-		if f.type & .N & 6 {
-			<<sv |= f.ids[0] != f.ids[2] || f.ids[3] != f.ids[5] || f.ids[6] != f.ids[8];
-		}
-	}
+	most_general := Ftype.INVALID;
 
 	end :: ($$ok := false, info := "") #expand {
 		if !ok {
@@ -149,55 +134,66 @@ load_obj :: (obj_path: string) -> Mesh_Raw_SOA, bool {
 		return v, true;
 	}
 
+	parse_vertice :: (src : string) -> Vertice {
+		c :: (x : Any) -> int {return <<cast(*int)x.value_pointer; }
+		using result : Vertice;
+		ok, r := scan("%i", src); if ok {
+			ids[0] = c(r[0]); type = .P;
+			return result;
+		} 
+		ok, r = scan("%i/%i", src); if ok {
+			ids[0], ids[1] = c(r[0]), c(r[1]); type = .UV;
+			return result;
+		}
+		ok, r = scan("%i//%i", src); if ok {
+			ids[0], ids[2] = c(r[0]), c(r[1]); type = .N;
+			return result;
+		}
+		ok, r = scan("%i/%i/%i", src); if ok {
+			ids[0], ids[1], ids[2] = c(r[0]), c(r[1]), c(r[2]); type = .UVN;
+			return result;
+		}
+		return result;
+	}
+
 	parse_face :: (str : *string) -> Face {
-		ids : [15]int;
-		ids2 : [9]int;
-		code : u64 = 0;
-
-		for i : 0..15 {
-			token, ok_t := parse_token(str, "/");
-			if !ok_t break;
-			if i == 15 {
-				if token[0] != #char "#" return .{type = .INVALID};
-				break;
-			} else if token == "/" {
-				code = (code << 2) | 0b10;
-			} else {
-				id, ok_id := string_to_int(token);
-				if !ok_id return .{type = .INVALID};
-
-				ids[i] = id;
-				code = (code << 2) | 0b11;
+		vts : [Face.MAX_POINTS]Vertice;
+		count : u8 = 0;
+		while count < Face.MAX_POINTS {
+			token, ok := parse_token(str);
+			if !ok break;
+			if count == Face.MAX_POINTS - 1 {
+				if token[0] == #char"#" break;
+				return .{type=.INVALID};
+			}
+			vts[count] = parse_vertice(token);
+			t := vts[count].type;
+			if t == .INVALID {
+				return .{type=.INVALID};
+			}
+			count += 1;
+		}
+		if count < 3 return .{type=.INVALID};	
+		face := Face.{type = vts[0].type, count = count};
+		for i : 0..count-1 {
+			for j : 0..2 {
+				if vts[i].type != face.type return .{type=.INVALID};
+				face.ids[i * 3 + j] = vts[i].ids[j];
 			}
 		}
-
-		if code == {
-			case 0b___11_11_11;
-			ids2[0], ids2[3], ids2[6] = ids[0], ids[1], ids[2];
-			return .{.P, ids2};
-			case 0b___111011_111011_111011;
-			ids2[0], ids2[1], ids2[3], ids2[4], ids2[6], ids2[7] = ids[0], ids[2], ids[3], ids[5], ids[6], ids[8];
-			return .{.UV, ids2};
-			case 0b___11101011_11101011_11101011;
-			ids2[0], ids2[2], ids2[3], ids2[5], ids2[6], ids2[8] = ids[0], ids[3], ids[4], ids[7], ids[8], ids[11];
-			return .{.N, ids2};
-			case 0b___1110111011_1110111011_1110111011;
-			ids2[0], ids2[1], ids2[2], ids2[3], ids2[4], ids2[5], ids2[6], ids2[7], ids2[8] = ids[0], ids[2], ids[4], ids[5], ids[7], ids[9], ids[10], ids[12], ids[14];
-			return .{.UVN, ids2};
-			case;
-			return .{type = .INVALID};
-		}
+		return face;
 	}
 	fix_ids :: (f : *Face, l : [3]int) -> bool {
 		for j : 0..2 {
-			if !((cast(s64) f.type) & (1 << j)) continue;
-			for i : 0..2 {
-				id := f.ids[i * 3 + j];
-				id = ifx id < 0 then l[j] + id else id - 1;
-				if id < 0 || id >= l[j] {
-					return false;
+			if (cast(s64) f.type) & (1 << j) {
+				for i : 0..f.count-1 {
+					id := f.ids[i * 3 + j];
+					id = ifx id < 0 then l[j] + id else id - 1;
+					if id < 0 || id >= l[j] return false;
+					f.ids[i * 3 + j] = id;
 				}
-				f.ids[i * 3 + j] = id;
+			} else {
+				for i : 0..f.count-1 f.ids[i * 3 + j] = -1;
 			}
 		}
 		return true;
@@ -227,10 +223,10 @@ load_obj :: (obj_path: string) -> Mesh_Raw_SOA, bool {
 
 			case "f";
 			face := parse_face(*line); end(face.type != .INVALID, "(3)");
+
 			ls : [3]int; ls[0], ls[1], ls[2] = points.count, uvs.count, normals.count;
 			end(fix_ids(*face, ls), "(4)");
 
-			check_if_splitted(face, *splitted_vertices);
 			most_general |= face.type;
 			array_add(*faces, face);
 
@@ -238,7 +234,7 @@ load_obj :: (obj_path: string) -> Mesh_Raw_SOA, bool {
 			case "g"; #through;
 			case "s"; #through;
 			case "mtllib"; #through;
-			case "usrmtl";
+			case "usemtl";
 			print("prefix % not supported yet\n", prefix);
 
 			case;
@@ -246,71 +242,165 @@ load_obj :: (obj_path: string) -> Mesh_Raw_SOA, bool {
 			continue;
 		}
 	}
-	return .{points=points, uvs=uvs, normals=normals, faces=faces, splitted_vertices=splitted_vertices, most_general=most_general}, true;
+	return .{points=points, uvs=uvs, normals=normals, faces=faces, most_general=most_general}, true;
 }
 
-prepare :: (mesh : *Mesh_Raw_SOA, default_uv := vec2.{0, 0}, default_normal := vec3.{0, 0, 0}) {
-	if mesh.gl_ready {
-		print("mesh already marked as ready!\n");
-		return;
+prepare :: (mesh : *Mesh_Raw_SOA, default_uv := vec2.{0, 0}, default_normal := vec3.{0, 0, 0}) -> int {
+	add_smooth_normals := true;
+	if mesh.gl_ready return 1;
+	// if add_flat_normals && (mesh.most_general & .N & 6) return 2;
+
+	cm_cmp :: (x : $T, y : T) -> bool {
+		S := size_of(T);
+		xp := cast(*u8)*x;
+		yp := cast(*u8)*y;
+		for 0..S-1 if xp[it] != yp[it] return false;
+		return true;
 	}
-	if mesh.splitted_vertices {
-		points_new, normals_new : []vec3;
-		uvs_new : []vec2;
-		points_new = NewArray(mesh.faces.count * 3, vec3);
-		if mesh.most_general & .UV & 6 {
-			uvs_new = NewArray(mesh.faces.count * 3, vec2);
-		}
-		if mesh.most_general & .N & 6 {
-			normals_new = NewArray(mesh.faces.count * 3, vec3);
-		}
+	cm_hash :: (x : $T) -> u32 {
+		return inline sdbm_hash(xx *x, size_of(T), 5381);
+	}
+	Triplet :: struct { p, uv, n : int; };
+	get_trplet :: (f : Face, i : int) -> Triplet {
+		return .{f.ids[i * 3], f.ids[i * 3 + 1], f.ids[i * 3 + 2]};
+	}
+	Vid :: struct { count, id : int; norm_sum : vec3; };
 
-		for f, i : mesh.faces {
-			for j : 0..2 {
-				uv := default_uv; n := default_normal;
-				p := mesh.points[f.ids[j * 3]];
-				if f.type & .UV & 6 then uv = mesh.uvs[f.ids[j * 3 + 1]];
-				if f.type & .N & 6 then n = mesh.normals[f.ids[j * 3 + 2]];
+	unique_points : Table(Triplet, Vid, cm_hash, cm_cmp);
+	init(*unique_points); defer deinit(*unique_points);
 
-				points_new[i * 3 + j] = p;
-				if mesh.most_general & .UV & 6 then uvs_new[i * 3 + j] = uv;
-				if mesh.most_general & .N & 6 then normals_new[i * 3 + j] = n;
+	points_count := 0;
+	for f : mesh.faces {
+		points_count += 3 * (f.count - 2);
+		fpoints : [Face.MAX_POINTS]vec3;
+		vptrs : [Face.MAX_POINTS]*Vid;
+		// print("ids:");
+		for i : 0..f.count-1 {
+			// print(" %", f.ids[3 * i]);
+			fpoints[i] = mesh.points[f.ids[3 * i]];
+			is_new : bool;
+			vptrs[i], is_new = find_or_add(*unique_points, get_trplet(f, i));
+			if is_new {
+				<<vptrs[i] = .{1, unique_points.count - 1, vec3.{}};
+			} else {
+				vptrs[i].count += 1;
 			}
 		}
-		array_free(mesh.points);
-		array_free(mesh.uvs);
-		array_free(mesh.normals);
-		array_free(mesh.faces);
-
-		mesh.points = points_new;
-		mesh.uvs = uvs_new;
-		mesh.normals = normals_new;
-		mesh.indices = .[];
-	} else {
-		ids_new := NewArray(mesh.faces.count * 3, u32);
-		for f, i : mesh.faces {
-			ids_new[i * 3], ids_new[i * 3 + 1], ids_new[i * 3 + 2] = cast(u32) f.ids[0], cast(u32) f.ids[3], cast(u32) f.ids[6];
+		// print("\nnormal: ");
+		for i : 1..f.count-2 {
+			n := normalize
+				(cross(fpoints[0] - fpoints[i], fpoints[0] - fpoints[i + 1]));
+			print("%", n);
+			vptrs[0].norm_sum += n;
+			vptrs[i].norm_sum += n;
+			vptrs[i + 1].norm_sum += n;
 		}
-		array_free(mesh.faces);
-		mesh.indices = ids_new;
+		print("\n");
 	}
+
+	strength_hist : [10]u32;
+	
+	for v : unique_points {
+		if v.count < 10 strength_hist[v.count] += 1;
+	}
+	print("hist : %\n", strength_hist);
+
+	single_point_size := size_of(vec3)
+						+ (ifx mesh.most_general & .UV & 6 then size_of(vec2) else 0)
+						+ (ifx mesh.most_general & .N & 6 then size_of(vec3) else 0);
+
+	size_with_no_ebo := points_count * single_point_size;
+	size_with_ebo := unique_points.count * single_point_size + points_count * size_of(u32);
+
+	print("size_with_no_ebo: %, size_with_ebo: %\n", size_with_no_ebo, size_with_ebo);
+	use_ebo := size_with_ebo < size_with_no_ebo;
+
+	points_new, normals_new : [..]vec3;
+	uvs_new : [..]vec2;
+	indices : [..]u32;
+
+	if use_ebo {
+		array_resize(*points_new, unique_points.count);
+		if mesh.most_general & .UV & 6 {
+			array_resize(*uvs_new, unique_points.count);
+		}
+		if (mesh.most_general & .N & 6) || add_smooth_normals {
+			array_resize(*normals_new, unique_points.count);
+		}
+		for v, k : unique_points {
+			pos := mesh.points[k.p];
+			points_new[v.id] = pos;
+			if mesh.most_general & .UV & 6 uvs_new[v.id] = mesh.uvs[k.uv];
+			if mesh.most_general & .N & 6 {
+				normals_new[v.id] = mesh.normals[k.n];
+			} else if add_smooth_normals {
+				normals_new[v.id] = normalize(v.norm_sum);
+			}
+		}
+		array_reserve(*indices, points_count);
+		for f : mesh.faces {
+			ids : [Face.MAX_POINTS]u32;
+			for i : 0..f.count-1 {
+				vid, ok := table_find(*unique_points, .{f.ids[i * 3], f.ids[i * 3 + 1], f.ids[i * 3 + 2]});
+				ids[i] = xx vid.id;
+			}
+			for i : 1..f.count-2 {
+				array_add(*indices, ids[0]);
+				array_add(*indices, ids[i]);
+				array_add(*indices, ids[i + 1]);
+			}
+		}
+	} else {
+		array_reserve(*points_new, points_count);
+		if mesh.most_general & .UV & 6 {
+			array_reserve(*uvs_new, points_count);
+		}
+		if mesh.most_general & .N & 6 {
+			array_reserve(*normals_new, points_count);
+		}
+
+		add_point :: (f : Face, i : u32) #expand {
+			array_add(*`points_new, `mesh.points[f.ids[i * 3]]);
+			if `mesh.most_general & .UV & 6 array_add(*`uvs_new, `mesh.uvs[f.ids[i * 3 + 1]]);
+			if mesh.most_general & .N & 6 {
+				array_add(*`normals_new, `mesh.normals[f.ids[i * 3 + 2]]);
+			} else if add_smooth_normals {
+				vid, ok := table_find(*`unique_points, get_trplet(f, i));
+				array_add(*`normals_new, vid.norm_sum);
+			}
+		}
+
+		for f : mesh.faces {
+			for i : 1..f.count-2 {
+				add_point(f, 0);
+				add_point(f, i);
+				add_point(f, i + 1);
+			}
+		}
+	}
+
+	array_free(mesh.points); mesh.points = points_new;
+	array_free(mesh.uvs); mesh.uvs = uvs_new;
+	array_free(mesh.normals); mesh.normals = normals_new;
+	array_free(mesh.faces); mesh.indices = indices;
+
 	mesh.gl_ready = true;
-	// defer clear_mesh_raw(mesh);
-	// return .{};
+
+	return 0;
 }
 
-usage_example :: () {
-	mesh_raw_soa, ok := load_obj("6th_platonic_solid.obj");
-	// This method ignores spaces in the faces declaration.
-	// For example, "f 1 / 2/3  4/ 5/ 6 2/3  / 4" will be parsed as well, as "f 1/2/3 4/5/6 2/3/4" even though the .obj spec says it's an error.
-	if !ok exit(1);
-	prepare(*mesh_raw_soa);
-	// Since some triangles may not have a UV coordinate or normal vector specified,
-	// this method adds them (only if at least one triangle has a normal/uv coordinate).
-	// Also, it replaces the array of triangles with an array of indices for glDrawElements.
-	// If some of the vertices do not have the same set of indices,
-	// then the vertices are duplicated for rendering using glDrawArrays.
+// usage_example :: () {
+// 	mesh_raw_soa, ok := load_obj("6th_platonic_solid.obj");
+// 	// This method ignores spaces in the faces declaration.
+// 	// For example, "f 1 / 2/3  4/ 5/ 6 2/3  / 4" will be parsed as well, as "f 1/2/3 4/5/6 2/3/4" even though the .obj spec says it's an error.
+// 	if !ok exit(1);
+// 	prepare(*mesh_raw_soa);
+// 	// Since some triangles may not have a UV coordinate or normal vector specified,
+// 	// this method adds them (only if at least one triangle has a normal/uv coordinate).
+// 	// Also, it replaces the array of triangles with an array of indices for glDrawElements.
+// 	// If some of the vertices do not have the same set of indices,
+// 	// then the vertices are duplicated for rendering using glDrawArrays.
 
-	// for debug print you can use print_mesh_raw_soa(). it produces different output if mesh prepared for render.
-	defer clear_mesh_raw(mesh_raw_soa);	
-}
+// 	// for debug print you can use print_mesh_raw_soa(). it produces different output if mesh prepared for render.
+// 	defer clear_mesh_raw(mesh_raw_soa);	
+// }
