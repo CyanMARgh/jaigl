@@ -1,5 +1,4 @@
 #import "Basic";//()(MEMORY_DEBUGGER=true);
-#import "X11";
 
 #import "Window_Creation";
 Input :: #import "Input";
