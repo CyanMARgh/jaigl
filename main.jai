@@ -110,7 +110,7 @@ check_gl_error :: (str := "-") {
 
 
 demo_0 :: () {
-	mesh_raw_soa, ok := load_obj("6th_platonic_solid.obj");
+	mesh_raw_soa, ok := load_obj("cow.obj");
 	if !ok exit(1);
 	prepare(*mesh_raw_soa);
 	defer clear_mesh_raw(mesh_raw_soa);
@@ -201,5 +201,5 @@ demo_1 :: () {
 }
 
 main :: () {
-	demo_1();
+	demo_0();
 }
