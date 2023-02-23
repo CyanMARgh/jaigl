@@ -7,7 +7,7 @@ Shader :: struct {
 	id : u32;
 	fields : Table(string, s32);
 }
-make_shader_part :: (src : string, type : GLuint/*, flags : []string = string.[]*/) -> Shader_Part {
+make_shader_part :: (src : string, type : GLuint/*, flags : []string = string.[]*/) -> Shader_Part, bool {
 	id := glCreateShader(type);
 	c_src := AF(to_c_string(src));
 	glShaderSource(id, 1, *c_src, null);
@@ -18,9 +18,11 @@ make_shader_part :: (src : string, type : GLuint/*, flags : []string = string.[]
 	if !succes {
 		glGetShaderInfoLog(id, 512, null, cast(*GLchar) *info_log);
 		print("failed to compile shader: %\n", from_c_string(*info_log));
+		glDeleteShader(id);
+		return .{}, false;
 	}
 	print("shader compiling done\n");
-	return .{id = id};
+	return .{id = id}, true;
 }
 clear_shader_part :: (sp : Shader_Part) {
 	glDeleteShader(sp.id);
@@ -57,6 +59,28 @@ make_shader_vgf :: (src_vert : string, src_geom : string, src_frag : string) -> 
 
 	return shader;
 }
+make_shader_c :: (src_comp : string) -> Shader {
+	comp := make_shader_part(src_comp, GL_COMPUTE_SHADER); defer clear_shader_part(comp);
+
+	id := glCreateProgram();
+	glAttachShader(id, comp.id);
+	glLinkProgram(id);
+	succes : s32;
+	info_log : [512]s8;
+	glGetProgramiv(id, GL_LINK_STATUS, *succes);
+	if !succes {
+		glGetProgramInfoLog(id, 512, null, cast(*GLchar) *info_log);
+		print("failed to link shader: %\n", from_c_string(*info_log));
+		glDeleteProgram(id);
+		return .{};
+	}
+
+	print("shader linking done\n");
+	shader := Shader.{id = id};
+	init(*shader.fields);
+
+	return shader;
+}
 clear_shader :: (using s : *Shader) {
 	glDeleteProgram(id);
 	deinit(*fields);
@@ -64,6 +88,11 @@ clear_shader :: (using s : *Shader) {
 use :: (using s : Shader) {
 	glUseProgram(id);
 }
+compute :: (using s : Shader, dimx : u32, dimy : u32) {
+	glDispatchCompute(dimx / 8, dimy / 4, 1);
+	glMemoryBarrier(GL_ALL_BARRIER_BITS);
+}
+
 find_id :: (s : *Shader, field : string) -> s32 {
 	idptr, new := find_or_add(*s.fields, field);
 	if new {

@@ -3,6 +3,7 @@
 #import "String";
 #import "Hash_Table";
 #import "Hash";
+// TODO separate "opengl" scene/mesh and obj file
 
 Point :: struct {
 	pos : vec3;
@@ -51,37 +52,35 @@ Mesh_Raw_SOA :: struct {
 	gl_ready := false;
 }
 print_mesh_raw_soa :: (using mesh : Mesh_Raw_SOA) {
-	if false {
-		for p, i : points {
-			print("v(%) % % %\n", i, p.x, p.y, p.z);
-		}
-		print("\n");
-		for uv, i : uvs {
-			print("vt(%) % %\n", i, uv.x, uv.y);
-		}
-		print("\n");
-		for n, i : normals {
-			print("vn(%) % % %\n", i, n.x, n.y, n.z);
-		}
-		print("\n");
-		if !gl_ready {
-			for f : faces {
-				using f;
-				fmt := ifx type == .P " %1" else ifx type == .UV " %1/%2" else ifx type == .N " %1//%3" else " %1/%2/%3"; 
-				// fmt := "[%1 %2 %3]";
-				print("f");
-				for i : 0..count-1 {
-					print(fmt, ids[i * 3], ids[i * 3 + 1], ids[i * 3 + 2]);
-				}
-				print("\n");
-			}
-		} else {
-			for t : 0..(indices.count/3-1) {
-				print("f [% % %]\n", mesh.indices[t * 3], mesh.indices[t * 3 + 1], mesh.indices[t * 3 + 2]);
-			}
-		}
-		if indices.count print("\n");
+	for p, i : points {
+		print("v(%) % % %\n", i, p.x, p.y, p.z);
 	}
+	print("\n");
+	for uv, i : uvs {
+		print("vt(%) % %\n", i, uv.x, uv.y);
+	}
+	print("\n");
+	for n, i : normals {
+		print("vn(%) % % %\n", i, n.x, n.y, n.z);
+	}
+	print("\n");
+	if !gl_ready {
+		for f : faces {
+			using f;
+			fmt := ifx type == .P " %1" else ifx type == .UV " %1/%2" else ifx type == .N " %1//%3" else " %1/%2/%3"; 
+			// fmt := "[%1 %2 %3]";
+			print("f");
+			for i : 0..count-1 {
+				print(fmt, ids[i * 3], ids[i * 3 + 1], ids[i * 3 + 2]);
+			}
+			print("\n");
+		}
+	} else {
+		for t : 0..(indices.count/3-1) {
+			print("f [% % %]\n", mesh.indices[t * 3], mesh.indices[t * 3 + 1], mesh.indices[t * 3 + 2]);
+		}
+	}
+	if indices.count print("\n");
 	print("points: %, uvs: %, normals: %, faces/indices: %\ntype: %\ngl_ready: %\n\n",
 		points.count, uvs.count, normals.count, faces.count, most_general, gl_ready);
 }
