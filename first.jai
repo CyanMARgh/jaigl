@@ -13,8 +13,7 @@
 	{
 		using target_options;
 
-		// optimization_level = .RELEASE;
-		// write_added_strings = false;
+		optimization_level = .RELEASE;
 		// stack_trace = false; 
 		// array_bounds_check = .OFF;
 
