@@ -22,11 +22,11 @@ getrect :: #import "GetRect";
 #load "camera.jai";
 #load "particles.jai";
 #load "framebuffer.jai";
+#load "buffers.jai";
 
 
 should_exit := false;
-color_id := 0;
-cube_src := Mesh_Raw.{
+cube_src :: Mesh_Raw.{
 	points = .[
 		-.5, -.5, -.5,  0, 0,
 		-.5,  .5, -.5,  1, 0,
@@ -67,7 +67,7 @@ cube_src := Mesh_Raw.{
 		20, 21, 22, 20, 22, 23
 	 ]
 };
-rect_src := Mesh_Raw.{
+rect_src :: Mesh_Raw.{
 	points = .[
 		-1, -1, 0,     0, 0,
 		 1, -1, 0,     1, 0,
@@ -102,21 +102,13 @@ check_gl_error :: (str := "-") {
 	if err print("error(%) = %\n", str, err);
 }
 
-#run {
-	#if OS == .WINDOWS {
-		#import "Windows_Resources";
-		disable_runtime_console();
-	}
-}
-
-
 demo_0 :: () {
-	mesh_raw_soa, ok := load_obj("cow.obj");
+	mesh_raw_soa, ok := load_obj("res/cow.obj");
 	if !ok exit(1);
 	prepare(*mesh_raw_soa);
 	defer clear_mesh_raw(mesh_raw_soa);
 
-	window := create_window(1200, 800, "model loading");
+	window := create_window(1200, 800, "model loading"); should_exit = false; defer close_window(window);
 	simp.set_render_target(window);
 	camera : Camera;
 
@@ -145,6 +137,7 @@ demo_0 :: () {
 
 		simp.swap_buffers(window);
 		reset_temporary_storage();
+        sleep_milliseconds(10);
 	}
 }
 
@@ -154,11 +147,11 @@ camera_rail :: (using camera : *Camera, t : float) {
 }
 
 demo_1 :: () {
-	window := create_window(1200, 800, "framebuffer test");
+	window := create_window(1200, 800, "framebuffer test"); should_exit = false; defer close_window(window);
 	simp.set_render_target(window);
 	camera : Camera;
 
-	mesh_raw_soa := load_obj("6th_platonic_solid.obj");
+	mesh_raw_soa := load_obj("res/6th_platonic_solid.obj");
 	prepare(*mesh_raw_soa); defer clear_mesh_raw(mesh_raw_soa);
 
 	mesh_scene := make_mesh_soa(mesh_raw_soa); defer clear_mesh(mesh_scene);
@@ -208,11 +201,12 @@ demo_1 :: () {
 
 		simp.swap_buffers(window);
 		reset_temporary_storage();
+		sleep_milliseconds(10);
 	}
 }
 
 demo_2 :: () {
-	window := create_window(1200, 800, "magnetic pendulum fractal");
+	window := create_window(1200, 800, "magnetic pendulum fractal"); should_exit = false; defer close_window(window);
 	simp.set_render_target(window);
 
 	mesh_screen := make_mesh(rect_src, Point_UV); defer clear_mesh(mesh_screen);
@@ -230,9 +224,7 @@ demo_2 :: () {
 	time := current_time_monotonic();
 	time0 := time;
 
-
 	started := true;
-
 	while !should_exit {
 		new_time := current_time_monotonic();
 		dt := to_float64_seconds(new_time - time); time = new_time;
@@ -251,10 +243,9 @@ demo_2 :: () {
 				set(*shader_iterate, "u_dtime", cast(float) dt);
 			compute(shader_iterate, 1200, 800);
 
-
 			use(shader_screen);
 				bind(state_buf, 0);
-			draw(mesh_screen);			
+			draw(mesh_screen);
 		} else if pressed_keys[#char "S"] {
 			started = true;
 		}
@@ -262,10 +253,99 @@ demo_2 :: () {
 
 		simp.swap_buffers(window);
 		reset_temporary_storage();
+		sleep_milliseconds(10);
 	}
+}
+
+demo_3 :: () {
+	width, height : u32 = 1200, 800;
+	max_nodes : u32 =  width * height * 5;
+
+	mesh_raw_soa, ok := load_obj("res/cow.obj");
+	if !ok exit(1);
+	prepare(*mesh_raw_soa);
+	defer clear_mesh_raw(mesh_raw_soa);
+
+	window := create_window(width, height, "model loading"); should_exit = false; defer close_window(window);
+	simp.set_render_target(window);
+	camera : Camera;
+
+	mesh_scene := make_mesh_soa(mesh_raw_soa); defer clear_mesh(mesh_scene);
+	mesh_screen := make_mesh(rect_src, Point_UV); defer clear_mesh(mesh_screen);
+
+	Color_Node :: struct {
+		color : vec4;
+		prev : u32;
+		depth : float;
+	}
+	buf_nodes := Shader_Storage.make(max_nodes, size_of(Color_Node)); defer clear(buf_nodes);
+	counter_nodes := Atomic_Counter.make(); defer clear(counter_nodes);
+	//											TODO    	----. 
+	buf_heads := make_image(width, height, GL_R32UI);
+
+	shader_to_nodes := make_shader_vf(SRC_VERT, SRC_OIT_TO_NODES_FRAG); defer clear_shader(*shader_to_nodes);
+	shader_from_nodes := make_shader_vf(SRC_SCREEN_VERT, SRC_OIT_FROM_NODES_FRAG); defer clear_shader(*shader_from_nodes);
+	shader_reset := make_shader_c(SRC_OIT_CLEAR_COMP); defer clear_shader(*shader_reset);
+
+	time := current_time_monotonic();
+	time0 := time;
+	while !should_exit {
+		// sim & input
+		new_time := current_time_monotonic();
+		dt := to_float64_seconds(new_time - time); time = new_time;
+		current_time := to_float64_seconds(new_time - time0);
+		Input.update_window_events();
+		move_camera(*camera, xx dt);
+		for Input.events_this_frame handle_event(it);
+
+		// render
+		use(shader_reset);
+			bind_as_storage(buf_heads, 0);
+		compute(shader_reset, width, height);
+		reset(counter_nodes);
+
+		// scene
+		{
+			simp.clear_render_target(.1, .3, .3, 1);
+			glClear(GL_DEPTH_BUFFER_BIT);
+
+			use(shader_to_nodes);
+				set(*shader_to_nodes, "u_transform", get_transform(*camera, .{xx width, xx height}));
+				set(*shader_to_nodes, "u_max_nides", max_nodes);
+				set(*shader_to_nodes, "u_time", cast(float)current_time);
+				bind_as_storage(buf_heads, 0);
+				bind(counter_nodes, 0);
+				bind(buf_nodes, 0);
+			draw(mesh_scene);
+		}
+
+		simp.clear_render_target(.3, .1, .3, 1);
+		glClear(GL_DEPTH_BUFFER_BIT);
+		use(shader_from_nodes);
+			bind_as_storage(buf_heads, 0);
+			bind(counter_nodes, 0);
+			bind(buf_nodes, 0);
+		draw(mesh_screen);
+
+		simp.swap_buffers(window);
+		reset_temporary_storage();
+		sleep_milliseconds(10);
+	}
+}
+
+close_window :: (window: Window_Type) {
+    #if OS == .WINDOWS {
+        Windows :: #import "Windows";
+        Windows.DestroyWindow(window);
+    } else #if OS == .LINUX {
+        X11 :: #import "X11";
+        X11.XDestroyWindow(X11.x_global_display, window);
+    }
 }
 
 
 main :: () {
-	demo_2();
+	demo_3();
+	// demo_0();
+	// demo_2();
 }

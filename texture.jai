@@ -3,18 +3,19 @@
 Texture :: struct {
 	id : u32;
 	width, height, dim : u32;
+	format : GLenum;
 }
 
-make_texture :: (_width : u32, _height : u32, format : GLenum, channels : GLenum, type : GLenum, params : []GLenum, src : *u8 = null, mipmap := true, storage := false) -> Texture {
-	using result := Texture.{width = _width, height = _height};
+make_texture :: (width : u32, height : u32, format : GLenum, channels : GLenum, type : GLenum, params : []GLenum, src : *u8 = null, mipmap := true, storage := false) -> Texture {
+	result := Texture.{width = width, height = height, format = format};
 
-	glGenTextures(1, *id);
-	glBindTexture(GL_TEXTURE_2D, id);
+	glGenTextures(1, *result.id);
+	glBindTexture(GL_TEXTURE_2D, result.id);
 		for i : 0..params.count/2 - 1 {
 			glTexParameteri(GL_TEXTURE_2D, xx params[i * 2], xx params[i * 2 + 1]);
 		}
 		if storage {
-			glTextureStorage2D(id, 1, xx format, width, height);
+			glTextureStorage2D(result.id, 1, xx format, width, height);
 		} else {
 			glTexImage2D(GL_TEXTURE_2D, 0, xx format, xx width, xx height, 0, channels, type, src);
 			if mipmap glGenerateMipmap(GL_TEXTURE_2D);
@@ -73,8 +74,7 @@ bind :: (texture : Texture, bind_id : u32) {
 	bind_texture(texture.id, bind_id);
 }
 bind_as_storage :: (texture : Texture, bind_id : u32) {
-	//																	TODO store format
-	glBindImageTexture(bind_id, texture.id, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+	glBindImageTexture(bind_id, texture.id, 0, GL_FALSE, 0, GL_WRITE_ONLY, texture.format);
 	// TODO 								?     ?      ?      ?
 }
 

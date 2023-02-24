@@ -108,3 +108,6 @@ set :: (s : *Shader, field : string, value : float) {
 set :: (s : *Shader, field : string, value : Matrix4) {
 	glUniformMatrix4fv(find_id(s, field), 1, GL_TRUE, xx *value);
 }
+set :: (s : *Shader, field : string, value : u32) {
+	glUniform1ui(find_id(s, field), value);
+}
