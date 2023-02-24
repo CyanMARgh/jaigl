@@ -3,7 +3,6 @@
 #import "Process";
 
 exe_name :: #run ifx OS == .WINDOWS then "main.exe" else "main";
-add_resources :: true;
 
 #run {
 	w := compiler_create_workspace("Target Program");
@@ -30,11 +29,7 @@ add_resources :: true;
 		message := compiler_wait_for_message();
 		if message.kind == {
 			case .COMPLETE;
-			if add_resources {
-				run_command("tar", "czf", "result.tar.gz", exe_name, "res");
-			} else {
-				run_command("tar", "czf", "result.tar.gz", exe_name);				
-			}
+			run_command("tar", "czf", "result.tar.gz", exe_name, "res/cow.obj");
 			break;
 		}
 	}
