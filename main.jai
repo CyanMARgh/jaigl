@@ -343,9 +343,8 @@ close_window :: (window: Window_Type) {
     }
 }
 
+#placeholder DEMO_ID;
 
 main :: () {
-	demo_3();
-	// demo_0();
-	// demo_2();
+	#insert #run tprint("demo_%();", DEMO_ID);
 }

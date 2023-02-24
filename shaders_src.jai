@@ -153,8 +153,8 @@ SRC_PENDULUM_SCREEN_FRAG :: #string GLSL
 	}
 
 	void main() {
-		// o_color = vec4(palette(texture(u_screen, vert_out.uv).xy), 1);
-		o_color = vec4(vert_out.uv, 0, 1);
+		o_color = vec4(palette(texture(u_screen, vert_out.uv).xy), 1);
+		// o_color = vec4(vert_out.uv, 0, 1);
 	}
 GLSL
 SRC_PENDULUM_INIT_COMP :: #string GLSL
