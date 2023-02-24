@@ -1,5 +1,6 @@
 .build/
-main
-rfoe
-rfoe.jai
-*.gz
+builds/
+demo_0
+demo_1
+demo_2
+demo_3
