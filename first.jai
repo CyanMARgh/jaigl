@@ -35,8 +35,13 @@ EXE_SUFFIX :: #run ifx OS == .WINDOWS then ".exe" else "";
 	} else if MAIN_DEMO < DEMO_COUNT {
 		build_demo(MAIN_DEMO);
 	}
+	make_link();
 }
 
+make_link :: () {
+	id_active := ifx MAIN_DEMO == DEMO_COUNT then DEMO_COUNT - 1 else MAIN_DEMO;
+	run_command("ln", "-s", "-f", tprint("%1%2%3", EXE_PREFIX, id_active, EXE_SUFFIX), tprint("main%", EXE_SUFFIX));
+}
 gen_tar_args :: (files : []string, exe_name : string, archive_name : string) -> []string {
 	result : [..]string;
 	array_add(*result, "tar");

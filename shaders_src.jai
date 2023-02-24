@@ -322,7 +322,7 @@ SRC_OIT_FROM_NODES_FRAG :: #string GLSL
 		vec2 mask = clamp((uv - .5) * sharpness, 0., 1.);
 		float color = clamp((abs((fract(abs(uv.x-uv.y)*2.+.25)-.5)*2.)-.5)*sharpness/5.,0.,1.);
 		color = max(color, min(mask.x, mask.y)) * max(mask.x, mask.y);
-		color = .9 + color * .05;
+		color = .5 + color * .5;
 
 		return vec4(color, color, color, 1);
 	}
