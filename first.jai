@@ -3,7 +3,7 @@
 #import "Process";
 #import "File";
 
-MAIN_DEMO :u8: 3;
+MAIN_DEMO :u8: 3; // set MAIN_DEMO = DEMO_COUNT to build all demos
 EXE_PREFIX :: "demo_"; 
 
 
