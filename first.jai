@@ -3,7 +3,7 @@
 #import "Process";
 
 exe_name :: #run ifx OS == .WINDOWS then "main.exe" else "main";
-add_resources :: false;
+add_resources :: true;
 
 #run {
 	w := compiler_create_workspace("Target Program");
