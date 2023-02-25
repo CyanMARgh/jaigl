@@ -67,7 +67,7 @@ build_demo :: (demo_id : u32) {
 	target_options := get_build_options(w);
 	{
 		using target_options;
-		optimization_level = .DEBUG;
+		optimization_level = .RELEASE;
 
 		output_executable_name = sprint("%1%2", EXE_PREFIX, demo_id);
 	}
@@ -76,7 +76,7 @@ build_demo :: (demo_id : u32) {
 
 	compiler_begin_intercept(w);
 	add_build_file(tprint("%/main.jai", #filepath), w);
-	// #if OS == .WINDOWS add_build_string("#run (#import \"Windows_Resources\").disable_runtime_console();", w);
+	#if OS == .WINDOWS add_build_string("#run (#import \"Windows_Resources\").disable_runtime_console();", w);
 
 	while 1 {
 		message := compiler_wait_for_message();
