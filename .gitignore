@@ -2,7 +2,4 @@
 builds/
 main
 *.exe
-demo_0
-demo_1
-demo_2
-demo_3
+*.elf

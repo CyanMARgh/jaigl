@@ -22,7 +22,7 @@ names :: string.[
 ];
 
 
-EXE_SUFFIX :: #run ifx OS == .WINDOWS then ".exe" else "";
+EXE_SUFFIX :: #run ifx OS == .WINDOWS then ".exe" else ".elf";
 #run {
 	set_build_options_dc(.{do_output=false});
 
@@ -67,7 +67,7 @@ build_demo :: (demo_id : u32) {
 	target_options := get_build_options(w);
 	{
 		using target_options;
-		optimization_level = .RELEASE;
+		optimization_level = .DEBUG;
 
 		output_executable_name = sprint("%1%2", EXE_PREFIX, demo_id);
 	}
@@ -76,7 +76,7 @@ build_demo :: (demo_id : u32) {
 
 	compiler_begin_intercept(w);
 	add_build_file(tprint("%/main.jai", #filepath), w);
-	#if OS == .WINDOWS add_build_string("#run (#import \"Windows_Resources\").disable_runtime_console();", w);
+	// #if OS == .WINDOWS add_build_string("#run (#import \"Windows_Resources\").disable_runtime_console();", w);
 
 	while 1 {
 		message := compiler_wait_for_message();
@@ -91,6 +91,7 @@ build_demo :: (demo_id : u32) {
 			}
 
 			case .COMPLETE;
+			#if OS == .LINUX run_command("mv", tprint("%1%2", EXE_PREFIX, demo_id), tprint("%1%2%3", EXE_PREFIX, demo_id, EXE_SUFFIX));
 			args := gen_tar_args(resources_list[demo_id], tprint("%1%2%3", EXE_PREFIX, demo_id, EXE_SUFFIX), tprint("builds/result_%.tar.gz", demo_id));
 			run_command(..args);
 			break;

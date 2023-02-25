@@ -1,4 +1,4 @@
-#import "Basic";//()(MEMORY_DEBUGGER=true);
+#import "Basic"()(MEMORY_DEBUGGER=true);
 
 #import "Window_Creation";
 Input :: #import "Input";
@@ -104,7 +104,10 @@ check_gl_error :: (str := "-") {
 
 demo_0 :: () {
 	mesh_raw_soa, ok := load_obj("res/cow.obj");
-	if !ok exit(1);
+	if !ok {
+		print("missing file : res/cow.obj");
+		exit(1);
+	}
 	prepare(*mesh_raw_soa);
 	defer clear_mesh_raw(mesh_raw_soa);
 
@@ -151,7 +154,11 @@ demo_1 :: () {
 	simp.set_render_target(window);
 	camera : Camera;
 
-	mesh_raw_soa := load_obj("res/6th_platonic_solid.obj");
+	mesh_raw_soa, ok := load_obj("res/6th_platonic_solid.obj");
+	if !ok {
+		print("missing file : res/6th_platonic_solid.obj\n");
+		exit(1);
+	}
 	prepare(*mesh_raw_soa); defer clear_mesh_raw(mesh_raw_soa);
 
 	mesh_scene := make_mesh_soa(mesh_raw_soa); defer clear_mesh(mesh_scene);
@@ -346,5 +353,6 @@ close_window :: (window: Window_Type) {
 #placeholder DEMO_ID;
 
 main :: () {
+	defer report_memory_leaks();
 	#insert #run tprint("demo_%();", DEMO_ID);
 }
