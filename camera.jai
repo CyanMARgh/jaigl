@@ -1,11 +1,11 @@
 Camera :: struct {
 	yaw, pitch : float;
-	position := vec3.{0, 0, 5};
+	position := vec3.{0, 0, 8};
 
 	pitch_limit := PI * .5;
 }
 move_camera :: (using cam : *Camera, dt : float) {
-	linear_speed, angular_speed := 2., 2.;
+	linear_speed, angular_speed := 4., 2.;
 	d_yaw, d_pitch := 0.;
 	direction : vec3;
 

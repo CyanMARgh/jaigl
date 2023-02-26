@@ -341,7 +341,7 @@ demo_3 :: () {
 }
 
 demo_4 :: () {
-	PARTICLES_MAX :u32: 1488;
+	PARTICLES_MAX :u32: 3000;
 	particles_alive : u32;
 
 	window := create_window(1200, 800, "advanced particles"); should_exit = false; defer close_window(window);
@@ -351,7 +351,8 @@ demo_4 :: () {
 	mesh_particles := make_empty_mesh_no_ebo(PARTICLES_MAX, Particle); defer clear_mesh(mesh_particles);
 
 	// shader_generate := make_shader_c(SRC_PARTICLE_GEN_COMP); defer clear_shader(*shader_generate);
-	shader_init := make_shader_c(SRC_PARTICLE_INIT_COMP); defer clear_shader(*shader_init);
+	// shader_init := make_shader_c(SRC_PARTICLE_INIT_COMP); defer clear_shader(*shader_init);
+	shader_emit := make_shader_c(SRC_PARTICLE_EMIT_COMP); defer clear_shader(*shader_emit);
 	shader_pass := make_shader_c(SRC_PARTICLE_TO_VBO_COMP); defer clear_shader(*shader_pass);
 	shader_simulate := make_shader_c(SRC_PARTICLE_SIMULATE_COMP); defer clear_shader(*shader_simulate);
 
@@ -374,40 +375,59 @@ demo_4 :: () {
 	buffer_particles_sim := Shader_Storage.make(PARTICLES_MAX, size_of(Particle_Sim)); defer clear(buffer_particles_sim);
 	counter_alive := Atomic_Counter.make(); defer clear(counter_alive);
 
-	use(shader_init);
-		bind(buffer_particles_sim, 0);
-		set(*shader_init, "u_process_count", PARTICLES_MAX);
-	compute(shader_init, PARTICLES_MAX, 1, 8, 1);
-	reset(counter_alive, PARTICLES_MAX); particles_alive = PARTICLES_MAX;
-	//        ^TODO remove param
+	reset(counter_alive, 0); particles_alive = 0;
+	group_size :u32= 100;
 
-	started := false;
+	spawn_particles :: (amount : u32, color : vec3, center : vec3) #expand {
+		use(`shader_emit);
+			bind(`buffer_particles_sim, 0);
+			bind(`counter_alive, 0);
+			set(*shader_emit, "u_max_particles", `PARTICLES_MAX);
+			set(*shader_emit, "u_emit_counter", amount);
+			set(*shader_emit, "u_color", color);
+			set(*shader_emit, "u_center", center);
+		compute(`shader_emit, amount, 1, 8, 1);
+		//        ^TODO remove param
+	}
+	get_color :: () -> vec3 {
+		col := vec3.{random_get_zero_to_one(), random_get_zero_to_one(), random_get_zero_to_one()};
+		return col / max(col.x, col.y, col.z);
+	}
+	get_center :: () -> vec3 {
+		return vec3.{random_get_within_range(-1, 1), random_get_within_range(-1, 1), random_get_within_range(-1, 1)} * 3;
+	}
+
+	for i: 0..0 spawn_particles(100, get_color(), get_center());
+
+	particles_alive = get(counter_alive);
+
 	//TODO macro for default loop
 	time := current_time_monotonic();
-	time0 := time;
+	time_last_spawn := time;
 	while !should_exit {
 		// input
 		new_time := current_time_monotonic();
 		dt := to_float64_seconds(new_time - time); time = new_time;
-		current_time := to_float64_seconds(new_time - time0);
+		time_from_previous := to_float64_seconds(new_time - time_last_spawn);
 		Input.update_window_events();
 		move_camera(*camera, xx dt);
 		for Input.events_this_frame handle_event(it);
 
 		// simulate
-		if started {
-			use(shader_simulate);
-				bind(buffer_particles_sim, 0);
-				bind(counter_alive, 0);
-				set(*shader_simulate, "u_process_count", particles_alive);
-			compute(shader_simulate, particles_alive, 1, 8, 1);
-			particles_alive = get(counter_alive);
-			// print("alive = %\n", particles_alive);
-		} else if pressed_keys[13] {
-			started = true;
+		if time_from_previous > .5 {
+			time_last_spawn = new_time;
+			spawn_particles(300, get_color(), get_center());
 		}
+
+		use(shader_simulate);
+			bind(buffer_particles_sim, 0);
+			bind(counter_alive, 0);
+			set(*shader_simulate, "u_dt", cast(float) dt);
+		compute(shader_simulate, particles_alive, 1, 8, 1);
+		particles_alive = get(counter_alive);
+
 		// render
-		simp.clear_render_target(.1, .0, .1, 1);
+		simp.clear_render_target(.0, .0, .0, 1);
 		glClear(GL_DEPTH_BUFFER_BIT);
 
 		glEnable(GL_BLEND);
@@ -416,7 +436,7 @@ demo_4 :: () {
 		use(shader_pass);
 			bind(buffer_particles_sim, 0);
 			bind_vbo_as_storage(mesh_particles, 1);
-			set(*shader_pass, "u_process_count", particles_alive);
+			bind(counter_alive, 0);
 		compute(shader_pass, particles_alive, 1, 8, 1); // TODO to macro		
 
 		use(shader_draw);

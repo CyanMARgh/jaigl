@@ -533,8 +533,7 @@ SRC_PARTICLE_INIT_COMP :: #string GLSL
 	layout(std430, binding = 0) buffer u_sim_particles {
 		Particle_Sim sim_particles[];
 	};
-	uniform uint u_process_count;
-
+	layout (binding = 0) uniform atomic_uint u_alive_counter;
 
 	vec2 hash22(vec2 p) {
 		p = p * mat2(127.1, 311.7, 269.5 ,183.3);
@@ -544,8 +543,9 @@ SRC_PARTICLE_INIT_COMP :: #string GLSL
 
 	void main() {
 		ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
+		uint alive_current = atomicCounter(u_alive_counter);
 
-		if(pixel_coords.x < u_process_count) {
+		if(pixel_coords.x < alive_current) {
 			float x = float(pixel_coords.x);
 			vec3 pos = vec3(hash22(vec2(x, 0)), hash22(vec2(x, 1)).x);
 			vec3 vel = vec3(hash22(vec2(x, 2)), hash22(vec2(x, 3)).x);
@@ -585,7 +585,7 @@ SRC_PARTICLE_TO_VBO_COMP :: #string GLSL
 	layout(std430, binding = 1) buffer u_vbo_particles {
 		Particle particles[];
 	};
-	uniform uint u_process_count;
+	layout (binding = 0) uniform atomic_uint u_alive_counter;
 
 	vec2 hash22(vec2 p) {
 		p = p * mat2(127.1, 311.7, 269.5 ,183.3);
@@ -595,8 +595,9 @@ SRC_PARTICLE_TO_VBO_COMP :: #string GLSL
 
 	void main() {
 		ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
+		uint alive_current = atomicCounter(u_alive_counter);
 
-		if(pixel_coords.x < u_process_count) {
+		if(pixel_coords.x < alive_current) {
 			Particle_Sim P = particles_sim[pixel_coords.x];
 
 			float scale = P.timer > 0 ? 2 * (1 - 1 / (P.timer / 10 + 1)) : -.5;
@@ -627,7 +628,7 @@ SRC_PARTICLE_SIMULATE_COMP :: #string GLSL
 		Particle_Sim sim_particles[];
 	};
 	layout (binding = 0) uniform atomic_uint u_alive_counter;
-	uniform uint u_process_count;
+	uniform float u_dt;
 
 	vec2 hash22(vec2 p) {
 		p = p * mat2(127.1, 311.7, 269.5 ,183.3);
@@ -635,29 +636,34 @@ SRC_PARTICLE_SIMULATE_COMP :: #string GLSL
 		return sin(p * 6.283);
 	}
 
-	const float dt = 0.01;
-
 	void main() {
 		ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
 
-		if(pixel_coords.x < u_process_count) {
+		uint alive_current = atomicCounter(u_alive_counter);
+		memoryBarrier();
+
+		if(pixel_coords.x < alive_current) {
 			float x = float(pixel_coords.x);
 			Particle_Sim P = sim_particles[pixel_coords.x];
 			vec3 pos = from_Vec3(P.pos);
 			vec3 vel = from_Vec3(P.vel);
 
 			if(P.timer >= 0) {
-				float alpha = 1, beta = .1, gamma = 1.;
+				float alpha = 1, beta = 2, gamma = 1.;
 				float r = length(pos);
-				vec3 force = pos * (alpha / (r * r * r + .01) - gamma) - vel * beta;
 
-				pos += vel * dt;
-				vel += force * dt;
+				vec3 force_friction = -vel * beta;
+				vec3 force_gravity = vec3(0, -1, 0);
+				vec3 force = force_friction + force_gravity;
+				// vec3 force = pos * (alpha / (r * r * r + .01) - gamma) - vel * beta;
+
+				pos += vel * u_dt;
+				vel += force * u_dt;
 
 				P.pos = to_Vec3(pos);
 				P.vel = to_Vec3(vel);
 
-				P.timer -= dt;
+				P.timer -= u_dt;
 				if(P.timer < 0) {
 					P.next = atomicCounterDecrement(u_alive_counter);
 				}
@@ -665,8 +671,7 @@ SRC_PARTICLE_SIMULATE_COMP :: #string GLSL
 			}
 		}
 		memoryBarrier();
-		uint alive_current = atomicCounter(u_alive_counter);
-		memoryBarrier();
+		alive_current = atomicCounter(u_alive_counter);
 
 		if(pixel_coords.x < alive_current) {
 			uint repl = pixel_coords.x;
@@ -678,5 +683,64 @@ SRC_PARTICLE_SIMULATE_COMP :: #string GLSL
 			}
 			sim_particles[pixel_coords.x] = sim_particles[repl];
 		}
+	}
+GLSL
+SRC_PARTICLE_EMIT_COMP :: #string GLSL
+	#version 430 core
+	layout(local_size_x = 8, local_size_y = 1, local_size_z = 1) in;
+
+	struct Vec3 { float x, y, z; };
+	Vec3 to_Vec3(vec3 v) { return Vec3(v.x, v.y, v.z); }
+	vec3 from_Vec3(Vec3 v) { return vec3(v.x, v.y, v.z); }
+
+	struct Particle_Sim {
+		Vec3 pos, vel;
+		float timer;
+		float size;
+		Vec3 color;
+		uint next;
+	};
+
+	layout(std430, binding = 0) buffer u_sim_particles {
+		Particle_Sim sim_particles[];
+	};
+	layout (binding = 0) uniform atomic_uint u_alive_counter;
+	uniform uint u_max_particles;
+
+	uniform uint u_emit_counter;
+	uniform vec3 u_color;
+	uniform vec3 u_center;
+
+	vec2 hash22(vec2 p) {
+		p = p * mat2(127.1, 311.7, 269.5 ,183.3);
+		p = -1.0 + 2.0 * fract(sin(p) * 43758.5453123);
+		return sin(p * 6.283);
+	}
+
+	const float PI = 3.14159265;
+	Particle_Sim gen_particle(uint i) {
+		float x = float(i);
+		vec3 center = vec3(0, 0, 0);
+
+		vec3 pos = u_center;
+		vec3 phi_y_r = vec3(hash22(vec2(x, 2)), hash22(vec2(x, 3)).x);
+		phi_y_r = vec3(phi_y_r.x * PI, phi_y_r.y, (phi_y_r.z * .2 + 1) * 4);
+
+		vec3 vel = phi_y_r.z * vec3(vec2(sin(phi_y_r.x), cos(phi_y_r.x)) * sqrt(1 - phi_y_r.y * phi_y_r.y),  phi_y_r.y);
+
+		float timer = 2 + .2 * hash22(vec2(x, 4)).x;
+		float size = 1.5 * (1.5 + hash22(vec2(x, 5)).x);
+		vec3 col = u_color + vec3(hash22(vec2(x, 6)), hash22(vec2(x, 7)).x) * .2;
+		col = clamp(col, vec3(0), vec3(1));
+
+		return Particle_Sim(to_Vec3(pos), to_Vec3(vel), timer, size, to_Vec3(col), 0xFFFFFFFF);
+	}
+
+	void main() {
+		ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
+
+		uint id = atomicCounterIncrement(u_alive_counter);
+		sim_particles[id] = gen_particle(id);
+		
 	}
 GLSL
