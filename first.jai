@@ -20,7 +20,7 @@ names :: string.[
 	"framebuffer test",	
 	"pendulum fractal",	
 	"order independent transparency",
-	"???"
+	"advanced particles"
 ];
 
 
