@@ -88,9 +88,13 @@ clear_shader :: (using s : *Shader) {
 use :: (using s : Shader) {
 	glUseProgram(id);
 }
-compute :: (using s : Shader, dimx : u32, dimy : u32) {
-	glDispatchCompute(dimx / 8, dimy / 4, 1);
-	glMemoryBarrier(GL_ALL_BARRIER_BITS);
+compute :: (using s : Shader, dimx : u32, dimy : u32, scalex : u32 = 8, scaley : u32 = 4, barrier := GL_ALL_BARRIER_BITS) {
+	if dimx > 0 && dimy > 0 && dimx < 10000 && dimy < 10000 {
+		sx, sy := (dimx-1) / scalex + 1, (dimy-1) / scaley + 1;
+		// print("sx, sy = %, %\n", sx, sy);
+		glDispatchCompute(sx, sy, 1);
+		glMemoryBarrier(GL_ALL_BARRIER_BITS);		
+	}
 }
 
 find_id :: (s : *Shader, field : string) -> s32 {

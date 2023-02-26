@@ -3,22 +3,24 @@
 #import "Process";
 #import "File";
 
-MAIN_DEMO :u8: 3; // set MAIN_DEMO = DEMO_COUNT to build all demos
+MAIN_DEMO :u8: 5; // set MAIN_DEMO = DEMO_COUNT to build all demos
 EXE_PREFIX :: "demo_"; 
 
 
-DEMO_COUNT :u8: 4;
+DEMO_COUNT :u8: 5;
 resources_list :: []string.[
 	.["cow.obj"],
 	.["6th_platonic_solid.obj"],
 	.[],
-	.["cow.obj"]
+	.["cow.obj"],
+	.[]
 ];
 names :: string.[
 	"loading models and calculating normals",	
 	"framebuffer test",	
 	"pendulum fractal",	
-	"order independent transparency"
+	"order independent transparency",
+	"???"
 ];
 
 

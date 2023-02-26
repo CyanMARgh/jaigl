@@ -1,6 +1,6 @@
 Camera :: struct {
 	yaw, pitch : float;
-	position := vec3.{0, 0, 3};
+	position := vec3.{0, 0, 5};
 
 	pitch_limit := PI * .5;
 }

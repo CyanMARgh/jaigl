@@ -12,6 +12,14 @@ Atomic_Counter :: struct {
 bind :: (using counter : Atomic_Counter, offset : u32 = 0) {
 	glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, offset, id);
 }
+get :: (using counter : Atomic_Counter) -> u32 {
+	glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, id);
+	ptr := glMapBuffer(GL_ATOMIC_COUNTER_BUFFER, GL_READ_ONLY);
+	val := << cast(*u32) ptr;
+	glUnmapBuffer(GL_ATOMIC_COUNTER_BUFFER);
+	return val;
+
+}
 clear :: (using counter : Atomic_Counter) {
 	glDeleteBuffers(1, *id);
 }

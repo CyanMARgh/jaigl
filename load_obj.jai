@@ -263,32 +263,32 @@ prepare :: (mesh : *Mesh_Raw_SOA, default_uv := vec2.{0, 0}, default_normal := v
 		return res;
 	}
 
-	unique_points : Table([3]int, int, triplet_hash, triplet_cmp);
-	init(*unique_points); defer deinit(*unique_points);
+	Unique_Point :: struct { id : int; nsum : vec3; }
 
-	smooth_normal_buf : [..]vec3; defer array_free(smooth_normal_buf);
+	unique_points : Table([3]int, Unique_Point, triplet_hash, triplet_cmp);
+	init(*unique_points); defer deinit(*unique_points);
 
 	points_count := 0;
 	for f : mesh.faces {
 		points_count += 3 * (f.count - 2);
-		vert_ids : [Face.MAX_POINTS]int;
+		vert_ids : [Face.MAX_POINTS]*Unique_Point;
 		corners : [Face.MAX_POINTS]vec3;
 
 		for i : 0..f.count-1 {
 			triplet := get_trplet(f, i);
 			vert_id_ptr, is_new := find_or_add(*unique_points, triplet);
 			if is_new {
-				<<vert_id_ptr = unique_points.count - 1;
-				array_add(*smooth_normal_buf, .{});
+				<<vert_id_ptr = .{id = unique_points.count - 1};
 			}
-			vert_ids[i] = <<vert_id_ptr;
 			corners[i] = mesh.points[triplet[0]];
 		}
+		for i : 0..f.count-1 vert_ids[i] = table_find_pointer(*unique_points, get_trplet(f, i));
+
 		for i : 1..f.count-2 {
 			n := normalize(cross(corners[i] - corners[0], corners[i + 1] - corners[0]));
-			smooth_normal_buf[vert_ids[0]] += n;
-			smooth_normal_buf[vert_ids[i]] += n;
-			smooth_normal_buf[vert_ids[i+1]] += n;
+			vert_ids[0].nsum	 += n;
+			vert_ids[i].nsum	 += n;
+			vert_ids[i + 1].nsum += n;
 		}
 	}
 
@@ -315,14 +315,14 @@ prepare :: (mesh : *Mesh_Raw_SOA, default_uv := vec2.{0, 0}, default_normal := v
 		if (mesh.most_general & .N & 6) || add_smooth_normals {
 			array_resize(*normals_new, unique_points.count);
 		}
-		for vert_id, triplet : unique_points {
+		for vert, triplet : unique_points {
 			pos := mesh.points[triplet[0]];
-			points_new[vert_id] = pos;
-			if mesh.most_general & .UV & 6 uvs_new[vert_id] = mesh.uvs[triplet[1]];
+			points_new[vert.id] = pos;
+			if mesh.most_general & .UV & 6 uvs_new[vert.id] = mesh.uvs[triplet[1]];
 			if mesh.most_general & .N & 6 {
-				normals_new[vert_id] = mesh.normals[triplet[2]];
+				normals_new[vert.id] = mesh.normals[triplet[2]];
 			} else if add_smooth_normals {
-				normals_new[vert_id] = normalize(smooth_normal_buf[vert_id]);
+				normals_new[vert.id] = normalize(vert.nsum);
 			}
 		}
 		array_reserve(*indices, points_count);
@@ -330,8 +330,8 @@ prepare :: (mesh : *Mesh_Raw_SOA, default_uv := vec2.{0, 0}, default_normal := v
 			ids : [Face.MAX_POINTS]u32;
 
 			for i : 0..f.count-1 {
-				vert_id, ok := table_find(*unique_points, get_trplet(f, i)); if !ok exit(1);
-				ids[i] = xx vert_id;
+				vert, ok := table_find(*unique_points, get_trplet(f, i)); if !ok exit(1);
+				ids[i] = xx vert.id;
 			}
 
 			for i : 1..f.count-2 {
@@ -355,8 +355,8 @@ prepare :: (mesh : *Mesh_Raw_SOA, default_uv := vec2.{0, 0}, default_normal := v
 			if mesh.most_general & .N & 6 {
 				array_add(*`normals_new, `mesh.normals[f.ids[i * 3 + 2]]);
 			} else if `add_smooth_normals {
-				vert_id, ok := table_find(*`unique_points, get_trplet(f, i)); if !ok exit(1);
-				array_add(*`normals_new, normalize(smooth_normal_buf[vert_id]));
+				vert, ok := table_find(*`unique_points, get_trplet(f, i)); if !ok exit(1);
+				array_add(*`normals_new, normalize(vert.nsum));
 			} else if `add_flat_normals {
 				corners : [3]vec3;
 				for i : 0..2 corners[i] = mesh.points[f.ids[i * 3]];

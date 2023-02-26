@@ -367,3 +367,316 @@ SRC_OIT_CLEAR_COMP :: #string GLSL
 		imageStore(u_screen, pixel_coords, ivec4(0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF));
 	}
 GLSL
+
+SRC_PARTICLE_DRAW_VERT :: #string GLSL
+	#version 430 core
+
+	layout (location = 0) in vec3 a_pos;
+	layout (location = 1) in float a_size;
+	layout (location = 2) in vec3 a_col;
+
+	uniform mat4 u_transform;
+
+	out struct Vert_Out {
+		float size;
+		vec3 col;
+	} vert_out;
+
+	void main() {
+		gl_Position = u_transform * vec4(a_pos, 1.);
+		vert_out.col = a_pos;
+		vert_out.size = a_size;
+		vert_out.col = /*vec3(0, 1, 0);*/a_col;
+	}
+GLSL
+SRC_PARTICLE_DRAW_GEOM :: #string GLSL
+	#version 430 core
+
+	layout (points) in;
+	layout (triangle_strip, max_vertices = 4) out;
+
+	// TODO
+	// uniform vec2 u_screen_size;
+	// uniform float u_particle_size = 60;
+
+	const vec2 u_screen_size = vec2(1200, 800);
+	const float u_particle_size = 60;
+
+	in struct Vert_Out {
+		float size;
+		vec3 col;
+	} vert_out[];
+
+	out struct Geom_Out {
+		vec3 col;
+		vec2 uv;
+	} geom_out;
+
+	void add_point(vec4 p0, vec2 dxy, vec4 M) {
+		gl_Position = p0 + vec4(dxy, 0, 0) * M; 
+		geom_out.uv = dxy;
+		EmitVertex();
+	}
+
+	void main() {
+		vec4 M = vert_out[0].size * vec4(u_particle_size / (vec2(u_screen_size.x / u_screen_size.y, 1) * 1500), 1., 1.), p0 = gl_in[0].gl_Position;
+	#ifdef SCREEN_SCALE
+		p0.xyz /= p0.w; p0.w = 1;
+	#else
+		M.xyz *= 4;
+	#endif
+
+		geom_out.col = vert_out[0].col;
+
+		if(vert_out[0].size > 0) {
+			add_point(p0, vec2(-1, -1), M);
+			add_point(p0, vec2( 1, -1), M);
+			add_point(p0, vec2(-1,  1), M);
+			add_point(p0, vec2( 1,  1), M);
+
+			EndPrimitive();
+		}
+	}
+GLSL
+SRC_PARTICLE_DRAW_FRAG :: #string GLSL
+	#version 430 core
+
+	// uniform sampler2D u_tex;
+	// uniform vec2 u_screen_size;
+	// uniform float u_time;
+
+	const vec2 u_screen_size = vec2(1200, 800);
+
+	in struct Geom_Out {
+		vec3 col;
+		vec2 uv;
+	} geom_out;
+
+	out vec4 color;  
+
+	// float z_near = .02, z_far  = 130;
+
+	// float linearize_depth(float depth)  {
+	// 	float z = depth * 2 - 1; 
+	// 	return (2 * z_near * z_far) / (z_far + z_near - z * (z_far - z_near));	
+	// }
+
+	void main() {
+		// float d0 = linearize_depth(texture(u_tex, (gl_FragCoord.xy) / u_screen_size).r);
+		// float d1 = linearize_depth(gl_FragCoord.z);
+
+		float depth_factor = 1;//clamp((d0 - d1) / 0.01, 0, 1);
+		float l = length(geom_out.uv);
+		float dist_factor = pow(clamp(1 - l, 0, 1), 2); //pow(max(1 - length(a_uv), 0), 2);
+		float time_factor = 1;// sin((u_time + 10) * (1 + freq) * 2) * .5 + .5;
+
+		float brightness = depth_factor * dist_factor * time_factor;
+
+		color = vec4(geom_out.col, brightness);
+	}
+GLSL
+
+SRC_PARTICLE_GEN_COMP :: #string GLSL 
+	#version 430 core
+	layout(local_size_x = 8, local_size_y = 1, local_size_z = 1) in;
+
+	struct Vec3 { float x, y, z };
+
+	struct Particle {
+		Vec3 pos;
+	};
+	Vec3 to_Vec3(vec3 v) {
+		return Vec3(v.x, v.y, v.z);
+	}
+
+	layout(std430, binding = 0) buffer u_vbo_particles {
+	    Particle particles[];
+	};
+
+	uniform float u_time;
+
+	vec2 hash22(vec2 p) {
+		p = p * mat2(127.1, 311.7, 269.5 ,183.3);
+		p = -1.0 + 2.0 * fract(sin(p) * 43758.5453123);
+		return sin(p * 6.283);
+	}
+
+	vec3 get_coord(float x) {
+		return vec3(hash22(vec2(x, 0)), hash22(vec2(x, 1)).x);
+	}
+
+	void main() {
+		ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
+
+		vec3 particle_coord = get_coord(gl_GlobalInvocationID.x);
+
+		particles[pixel_coords.x] = Particle(to_Vec3(particle_coord));
+	}
+GLSL
+
+SRC_PARTICLE_INIT_COMP :: #string GLSL
+	#version 430 core
+	layout(local_size_x = 8, local_size_y = 1, local_size_z = 1) in;
+
+	struct Vec3 { float x, y, z; };
+	Vec3 to_Vec3(vec3 v) { return Vec3(v.x, v.y, v.z); }
+	vec3 from_Vec3(Vec3 v) { return vec3(v.x, v.y, v.z); }
+
+	struct Particle_Sim {
+		Vec3 pos, vel;
+		float timer;
+		float size;
+		Vec3 color;
+		uint next;
+	};
+
+	layout(std430, binding = 0) buffer u_sim_particles {
+		Particle_Sim sim_particles[];
+	};
+	uniform uint u_process_count;
+
+
+	vec2 hash22(vec2 p) {
+		p = p * mat2(127.1, 311.7, 269.5 ,183.3);
+		p = -1.0 + 2.0 * fract(sin(p) * 43758.5453123);
+		return sin(p * 6.283);
+	}
+
+	void main() {
+		ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
+
+		if(pixel_coords.x < u_process_count) {
+			float x = float(pixel_coords.x);
+			vec3 pos = vec3(hash22(vec2(x, 0)), hash22(vec2(x, 1)).x);
+			vec3 vel = vec3(hash22(vec2(x, 2)), hash22(vec2(x, 3)).x);
+			float timer = 5 * (2 + hash22(vec2(x, 4)).x);
+			float size = .5 * (1.5 + hash22(vec2(x, 5)).x);
+			vec3 col = vec3(hash22(vec2(x, 6)), hash22(vec2(x, 7)).x);
+			col += 1.2; col /= max(max(col.x, col.y), col.z);
+
+			sim_particles[pixel_coords.x] = Particle_Sim(to_Vec3(pos), to_Vec3(vel), timer, size, to_Vec3(col), 0xFFFFFFFF);			
+		}
+	}
+GLSL
+SRC_PARTICLE_TO_VBO_COMP :: #string GLSL
+	#version 430 core
+	layout(local_size_x = 8, local_size_y = 1, local_size_z = 1) in;
+
+	struct Vec3 { float x, y, z; };
+	Vec3 to_Vec3(vec3 v) { return Vec3(v.x, v.y, v.z); }
+	vec3 from_Vec3(Vec3 v) { return vec3(v.x, v.y, v.z); }
+
+	struct Particle_Sim {
+		Vec3 pos, vel;
+		float timer;
+		float size;
+		Vec3 color;
+		uint next;
+	};
+	struct Particle {
+		Vec3 pos;
+		float size;
+		Vec3 color;
+	};
+
+	layout(std430, binding = 0) buffer u_sim_particles {
+		Particle_Sim particles_sim[];
+	};
+	layout(std430, binding = 1) buffer u_vbo_particles {
+		Particle particles[];
+	};
+	uniform uint u_process_count;
+
+	vec2 hash22(vec2 p) {
+		p = p * mat2(127.1, 311.7, 269.5 ,183.3);
+		p = -1.0 + 2.0 * fract(sin(p) * 43758.5453123);
+		return sin(p * 6.283);
+	}
+
+	void main() {
+		ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
+
+		if(pixel_coords.x < u_process_count) {
+			Particle_Sim P = particles_sim[pixel_coords.x];
+
+			float scale = P.timer > 0 ? 2 * (1 - 1 / (P.timer / 10 + 1)) : -.5;
+
+			particles[pixel_coords.x] = Particle(P.pos, P.size * scale, P.color);			
+		}
+
+		// particles[pixel_coords.x] = Particle(Vec3(0, 0, 0), 1, Vec3(1, 0, 0));
+	}
+GLSL
+SRC_PARTICLE_SIMULATE_COMP :: #string GLSL
+	#version 430 core
+	layout(local_size_x = 8, local_size_y = 1, local_size_z = 1) in;
+
+	struct Vec3 { float x, y, z; };
+	Vec3 to_Vec3(vec3 v) { return Vec3(v.x, v.y, v.z); }
+	vec3 from_Vec3(Vec3 v) { return vec3(v.x, v.y, v.z); }
+
+	struct Particle_Sim {
+		Vec3 pos, vel;
+		float timer;
+		float size;
+		Vec3 color;
+		uint next;
+	};
+
+	layout(std430, binding = 0) buffer u_sim_particles {
+		Particle_Sim sim_particles[];
+	};
+	layout (binding = 0) uniform atomic_uint u_alive_counter;
+	uniform uint u_process_count;
+
+	vec2 hash22(vec2 p) {
+		p = p * mat2(127.1, 311.7, 269.5 ,183.3);
+		p = -1.0 + 2.0 * fract(sin(p) * 43758.5453123);
+		return sin(p * 6.283);
+	}
+
+	const float dt = 0.01;
+
+	void main() {
+		ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
+
+		if(pixel_coords.x < u_process_count) {
+			float x = float(pixel_coords.x);
+			Particle_Sim P = sim_particles[pixel_coords.x];
+			vec3 pos = from_Vec3(P.pos);
+			vec3 vel = from_Vec3(P.vel);
+
+			if(P.timer >= 0) {
+				float alpha = 1, beta = .1, gamma = 1.;
+				float r = length(pos);
+				vec3 force = pos * (alpha / (r * r * r + .01) - gamma) - vel * beta;
+
+				pos += vel * dt;
+				vel += force * dt;
+
+				P.pos = to_Vec3(pos);
+				P.vel = to_Vec3(vel);
+
+				P.timer -= dt;
+				if(P.timer < 0) {
+					P.next = atomicCounterDecrement(u_alive_counter);
+				}
+				sim_particles[pixel_coords.x] = P;
+			}
+		}
+		memoryBarrier();
+		uint alive_current = atomicCounter(u_alive_counter);
+		memoryBarrier();
+
+		if(pixel_coords.x < alive_current) {
+			uint repl = pixel_coords.x;
+			int MAX_ITERATIONS = 100;
+			for(int i = 0; i < MAX_ITERATIONS; i++) {
+				uint next = sim_particles[repl].next;
+				if(next == 0xFFFFFFFF) break;
+				repl = next;
+			}
+			sim_particles[pixel_coords.x] = sim_particles[repl];
+		}
+	}
+GLSL

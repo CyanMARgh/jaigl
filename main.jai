@@ -273,7 +273,7 @@ demo_3 :: () {
 	prepare(*mesh_raw_soa);
 	defer clear_mesh_raw(mesh_raw_soa);
 
-	window := create_window(width, height, "model loading"); should_exit = false; defer close_window(window);
+	window := create_window(width, height, "order independent transparency"); should_exit = false; defer close_window(window);
 	simp.set_render_target(window);
 	camera : Camera;
 
@@ -340,14 +340,103 @@ demo_3 :: () {
 	}
 }
 
+demo_4 :: () {
+	PARTICLES_MAX :u32: 1488;
+	particles_alive : u32;
+
+	window := create_window(1200, 800, "advanced particles"); should_exit = false; defer close_window(window);
+	simp.set_render_target(window);
+	camera : Camera;
+
+	mesh_particles := make_empty_mesh_no_ebo(PARTICLES_MAX, Particle); defer clear_mesh(mesh_particles);
+
+	// shader_generate := make_shader_c(SRC_PARTICLE_GEN_COMP); defer clear_shader(*shader_generate);
+	shader_init := make_shader_c(SRC_PARTICLE_INIT_COMP); defer clear_shader(*shader_init);
+	shader_pass := make_shader_c(SRC_PARTICLE_TO_VBO_COMP); defer clear_shader(*shader_pass);
+	shader_simulate := make_shader_c(SRC_PARTICLE_SIMULATE_COMP); defer clear_shader(*shader_simulate);
+
+	shader_draw := make_shader_vgf(SRC_PARTICLE_DRAW_VERT, SRC_PARTICLE_DRAW_GEOM, SRC_PARTICLE_DRAW_FRAG); defer clear_shader(*shader_draw);
+
+	Particle :: struct {
+		pos : vec3;
+		size : float;
+		color : vec3;
+	}
+
+	Particle_Sim :: struct {
+		pos, vel : vec3;
+		timer : float;
+		size : float;
+		color : vec3;
+		repl : u32;
+	}
+
+	buffer_particles_sim := Shader_Storage.make(PARTICLES_MAX, size_of(Particle_Sim)); defer clear(buffer_particles_sim);
+	counter_alive := Atomic_Counter.make(); defer clear(counter_alive);
+
+	use(shader_init);
+		bind(buffer_particles_sim, 0);
+		set(*shader_init, "u_process_count", PARTICLES_MAX);
+	compute(shader_init, PARTICLES_MAX, 1, 8, 1);
+	reset(counter_alive, PARTICLES_MAX); particles_alive = PARTICLES_MAX;
+	//        ^TODO remove param
+
+	started := false;
+	//TODO macro for default loop
+	time := current_time_monotonic();
+	time0 := time;
+	while !should_exit {
+		// input
+		new_time := current_time_monotonic();
+		dt := to_float64_seconds(new_time - time); time = new_time;
+		current_time := to_float64_seconds(new_time - time0);
+		Input.update_window_events();
+		move_camera(*camera, xx dt);
+		for Input.events_this_frame handle_event(it);
+
+		// simulate
+		if started {
+			use(shader_simulate);
+				bind(buffer_particles_sim, 0);
+				bind(counter_alive, 0);
+				set(*shader_simulate, "u_process_count", particles_alive);
+			compute(shader_simulate, particles_alive, 1, 8, 1);
+			particles_alive = get(counter_alive);
+			// print("alive = %\n", particles_alive);
+		} else if pressed_keys[13] {
+			started = true;
+		}
+		// render
+		simp.clear_render_target(.1, .0, .1, 1);
+		glClear(GL_DEPTH_BUFFER_BIT);
+
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+
+		use(shader_pass);
+			bind(buffer_particles_sim, 0);
+			bind_vbo_as_storage(mesh_particles, 1);
+			set(*shader_pass, "u_process_count", particles_alive);
+		compute(shader_pass, particles_alive, 1, 8, 1); // TODO to macro		
+
+		use(shader_draw);
+			set(*shader_draw, "u_transform", get_transform(*camera, .{1200, 800}));
+		draw(mesh_particles, GL_POINTS, particles_alive);
+
+		simp.swap_buffers(window);
+		reset_temporary_storage();
+		sleep_milliseconds(10);
+	}	
+}
+
 close_window :: (window: Window_Type) {
-    #if OS == .WINDOWS {
-        Windows :: #import "Windows";
-        Windows.DestroyWindow(window);
-    } else #if OS == .LINUX {
-        X11 :: #import "X11";
-        X11.XDestroyWindow(X11.x_global_display, window);
-    }
+	#if OS == .WINDOWS {
+		Windows :: #import "Windows";
+		Windows.DestroyWindow(window);
+	} else #if OS == .LINUX {
+		X11 :: #import "X11";
+		X11.XDestroyWindow(X11.x_global_display, window);
+	}
 }
 
 #placeholder DEMO_ID;

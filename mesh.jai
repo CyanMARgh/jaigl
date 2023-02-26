@@ -59,7 +59,7 @@ make_mesh :: (mesh_raw : Mesh_Raw, $ptype : Type, draw_mode := GL_STATIC_DRAW) -
 	using mesh : Mesh;
 
 	has_ebo = xx mesh_raw.indices;
-	points_count = cast(u32) mesh_raw.points.count;
+	points_count = cast(u32) mesh_raw.points.count / (size_of(ptype) / size_of(float));
 	indices_count = cast(u32) mesh_raw.indices.count;
 
 	glGenVertexArrays(1, *vao);
@@ -70,12 +70,27 @@ make_mesh :: (mesh_raw : Mesh_Raw, $ptype : Type, draw_mode := GL_STATIC_DRAW) -
 	if has_ebo {
 		glGenBuffers(1, *ebo);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh_raw.indices.count * size_of(u32), mesh_raw.indices.data, xx draw_mode);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices_count * size_of(u32), mesh_raw.indices.data, xx draw_mode);
 	}
 
-	glBufferData(GL_ARRAY_BUFFER, mesh_raw.points.count * size_of(ptype), mesh_raw.points.data, xx draw_mode);
+	glBufferData(GL_ARRAY_BUFFER, points_count * size_of(ptype), mesh_raw.points.data, xx draw_mode);
 	add_attribs(ptype);
+	glBindVertexArray(0);
+	return mesh;
+}
+make_empty_mesh_no_ebo :: (count : u32, $ptype : Type, draw_mode := GL_DYNAMIC_DRAW) -> Mesh {
+	using mesh : Mesh;
 
+	has_ebo = false;
+	points_count, indices_count = count, 0;
+
+	glGenVertexArrays(1, *vao);
+	glGenBuffers(1, *vbo);
+	glBindVertexArray(vao);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+
+	glBufferData(GL_ARRAY_BUFFER, points_count * size_of(ptype), null, xx draw_mode);
+	add_attribs(ptype);
 	glBindVertexArray(0);
 	return mesh;
 }
@@ -86,11 +101,15 @@ clear_mesh :: (using mesh_uv : Mesh) {
 		glDeleteBuffers(1, *ebo);
 	}
 }
-draw :: (using mesh_uv : Mesh, mode := GL_TRIANGLES) {
+draw :: (using mesh_uv : Mesh, mode := GL_TRIANGLES, actual_size :u32= 0xFFFFFFFF) {
 	glBindVertexArray(vao);
 	if has_ebo {
-		glDrawElements(xx mode, indices_count, GL_UNSIGNED_INT, null);
+		glDrawElements(xx mode, ifx actual_size == 0xFFFFFFFF then indices_count else actual_size, GL_UNSIGNED_INT, null);
 	} else {
-		glDrawArrays(xx mode, 0, points_count);
+		glDrawArrays(xx mode, 0, ifx actual_size == 0xFFFFFFFF then points_count else actual_size);
 	}
+}
+bind_vbo_as_storage :: (mesh : Mesh, offset : u32 = 0) {
+	glBindVertexArray(mesh.vao);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, offset, mesh.vbo);
 }
