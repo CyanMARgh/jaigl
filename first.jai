@@ -69,7 +69,7 @@ build_demo :: (demo_id : u32) {
 	target_options := get_build_options(w);
 	{
 		using target_options;
-		// optimization_level = .RELEASE;
+		optimization_level = .RELEASE;
 
 		output_executable_name = sprint("%1%2", EXE_PREFIX, demo_id);
 	}
