@@ -4,7 +4,7 @@ Camera :: struct {
 
 	pitch_limit := PI * .5;
 }
-move_camera :: (using cam : *Camera, dt : float) {
+move_camera :: (using cam : *Camera, dt : float, pressed_keys : [1024]bool) {
 	linear_speed, angular_speed := 4., 2.;
 	d_yaw, d_pitch := 0.;
 	direction : vec3;
@@ -13,8 +13,8 @@ move_camera :: (using cam : *Camera, dt : float) {
 	if pressed_keys[#char "S"] 		   direction.z += 1;
 	if pressed_keys[#char "A"] 		   direction.x -= 1;
 	if pressed_keys[#char "D"] 		   direction.x += 1;
-	if pressed_keys[Key_Code.SPACEBAR] direction.y += 1;	
-	if pressed_keys[Key_Code.SHIFT]    direction.y -= 1;	
+	if pressed_keys[Input.Key_Code.SPACEBAR] direction.y += 1;	
+	if pressed_keys[Input.Key_Code.SHIFT]    direction.y -= 1;	
 
 	if pressed_keys[#char "Q"] d_yaw   += 1;
 	if pressed_keys[#char "E"] d_yaw   -= 1;
@@ -36,6 +36,11 @@ print_mat :: (mat : Matrix4) {
 	print("\n");
 }
 get_transform :: (using cam : *Camera, ws : vec2) -> Matrix4 {
+	v, p := get_transform_v_p(cam, ws);
+	return p * v;
+}
+
+get_transform_v_p :: (using cam : *Camera, ws : vec2) -> Matrix4, Matrix4 {
 	move := make_translation_matrix4(-position);
 	rotate := rotation_matrix(Matrix4, 
 		Quaternion.{sin(-pitch / 2), 0, 0, cos(-pitch / 2)} * 
@@ -43,5 +48,5 @@ get_transform :: (using cam : *Camera, ws : vec2) -> Matrix4 {
 	);
 	proj := make_projection_matrix(PI * .3, ws.x / ws.y, 0.1, 100);
 
-	return proj * rotate * move;
+	return rotate * move, proj;
 }

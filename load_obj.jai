@@ -1,9 +1,14 @@
-#import "Random";
-#import "File";
-#import "String";
-#import "Hash_Table";
-#import "Hash";
 // TODO separate "opengl" scene/mesh and obj file
+
+rect_src :: Mesh_Raw.{
+	points = .[
+		-1, -1, 0,     0, 0,
+		 1, -1, 0,     1, 0,
+		 1,  1, 0,     1, 1,
+		-1,  1, 0,     0, 1
+	],
+	indices = .[0, 1, 2, 0, 2, 3]
+};
 
 Point :: struct {
 	pos : vec3;
@@ -389,19 +394,3 @@ prepare :: (mesh : *Mesh_Raw_SOA, default_uv := vec2.{0, 0}, default_normal := v
 
 	return 0;
 }
-
-// usage_example :: () {
-// 	mesh_raw_soa, ok := load_obj("6th_platonic_solid.obj");
-// 	// This method ignores spaces in the faces declaration.
-// 	// For example, "f 1 / 2/3  4/ 5/ 6 2/3  / 4" will be parsed as well, as "f 1/2/3 4/5/6 2/3/4" even though the .obj spec says it's an error.
-// 	if !ok exit(1);
-// 	prepare(*mesh_raw_soa);
-// 	// Since some triangles may not have a UV coordinate or normal vector specified,
-// 	// this method adds them (only if at least one triangle has a normal/uv coordinate).
-// 	// Also, it replaces the array of triangles with an array of indices for glDrawElements.
-// 	// If some of the vertices do not have the same set of indices,
-// 	// then the vertices are duplicated for rendering using glDrawArrays.
-
-// 	// for debug print you can use print_mesh_raw_soa(). it produces different output if mesh prepared for render.
-// 	defer clear_mesh_raw(mesh_raw_soa);	
-// }

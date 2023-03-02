@@ -4,7 +4,8 @@ SRC_VERT :: #string GLSL
 	layout (location = 1) in vec2 a_uv;
 	layout (location = 2) in vec3 a_norm;
 
-	uniform mat4 u_transform;
+	uniform mat4 u_transform_mv;
+	uniform mat4 u_transform_p;
 
 	out struct Vert_Out {
 		vec3 pos;
@@ -16,7 +17,7 @@ SRC_VERT :: #string GLSL
 		vert_out.pos = a_pos;
 		vert_out.uv = a_uv;
 		vert_out.norm = a_norm;
-		gl_Position = u_transform * vec4(a_pos, 1);
+		gl_Position = u_transform_p * (u_transform_mv * vec4(a_pos, 1));
 	}
 GLSL
 SRC_CALCULATE_NORMALS_GEOM :: #string GLSL
@@ -159,7 +160,7 @@ SRC_PENDULUM_SCREEN_FRAG :: #string GLSL
 GLSL
 SRC_PENDULUM_INIT_COMP :: #string GLSL
 	#version 430 core
-	layout(local_size_x = 8, local_size_y = 4, local_size_z = 1) in;
+	// layout(local_size_x = 8, local_size_y = 4, local_size_z = 1) in;
 	layout(rgba32f, binding = 0) uniform image2D states;
 
 	uniform float u_time;
@@ -180,7 +181,7 @@ SRC_PENDULUM_INIT_COMP :: #string GLSL
 GLSL
 SRC_PENDULUM_ITERATE_COMP :: #string GLSL
 	#version 430 core
-	layout(local_size_x = 8, local_size_y = 4, local_size_z = 1) in;
+	// layout(local_size_x = 8, local_size_y = 4, local_size_z = 1) in;
 	layout(rgba32f, binding = 0) uniform image2D states;
 
 	uniform float u_time;
@@ -238,7 +239,6 @@ SRC_PENDULUM_ITERATE_COMP :: #string GLSL
 		}
 		return s;
 	} 
-
 	void main() {
 		ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
 		ivec2 dims = imageSize(states);
@@ -478,7 +478,7 @@ GLSL
 
 SRC_PARTICLE_GEN_COMP :: #string GLSL 
 	#version 430 core
-	layout(local_size_x = 8, local_size_y = 1, local_size_z = 1) in;
+	// layout(local_size_x = 8, local_size_y = 1, local_size_z = 1) in;
 
 	struct Vec3 { float x, y, z };
 
@@ -516,7 +516,7 @@ GLSL
 
 SRC_PARTICLE_INIT_COMP :: #string GLSL
 	#version 430 core
-	layout(local_size_x = 8, local_size_y = 1, local_size_z = 1) in;
+	// layout(local_size_x = 8, local_size_y = 1, local_size_z = 1) in;
 
 	struct Vec3 { float x, y, z; };
 	Vec3 to_Vec3(vec3 v) { return Vec3(v.x, v.y, v.z); }
@@ -560,7 +560,7 @@ SRC_PARTICLE_INIT_COMP :: #string GLSL
 GLSL
 SRC_PARTICLE_TO_VBO_COMP :: #string GLSL
 	#version 430 core
-	layout(local_size_x = 8, local_size_y = 1, local_size_z = 1) in;
+	// layout(local_size_x = 8, local_size_y = 1, local_size_z = 1) in;
 
 	struct Vec3 { float x, y, z; };
 	Vec3 to_Vec3(vec3 v) { return Vec3(v.x, v.y, v.z); }
@@ -610,7 +610,7 @@ SRC_PARTICLE_TO_VBO_COMP :: #string GLSL
 GLSL
 SRC_PARTICLE_SIMULATE_COMP :: #string GLSL
 	#version 430 core
-	layout(local_size_x = 8, local_size_y = 1, local_size_z = 1) in;
+	// layout(local_size_x = 8, local_size_y = 1, local_size_z = 1) in;
 
 	struct Vec3 { float x, y, z; };
 	Vec3 to_Vec3(vec3 v) { return Vec3(v.x, v.y, v.z); }
@@ -653,7 +653,7 @@ SRC_PARTICLE_SIMULATE_COMP :: #string GLSL
 				float r = length(pos);
 
 				vec3 force_friction = -vel * beta;
-				vec3 force_gravity = vec3(0, -1, 0);
+				vec3 force_gravity = vec3(0, -3, 0);
 				vec3 force = force_friction + force_gravity;
 				// vec3 force = pos * (alpha / (r * r * r + .01) - gamma) - vel * beta;
 
@@ -687,7 +687,7 @@ SRC_PARTICLE_SIMULATE_COMP :: #string GLSL
 GLSL
 SRC_PARTICLE_EMIT_COMP :: #string GLSL
 	#version 430 core
-	layout(local_size_x = 8, local_size_y = 1, local_size_z = 1) in;
+	// layout(local_size_x = 8, local_size_y = 1, local_size_z = 1) in;
 
 	struct Vec3 { float x, y, z; };
 	Vec3 to_Vec3(vec3 v) { return Vec3(v.x, v.y, v.z); }
@@ -716,22 +716,33 @@ SRC_PARTICLE_EMIT_COMP :: #string GLSL
 		p = -1.0 + 2.0 * fract(sin(p) * 43758.5453123);
 		return sin(p * 6.283);
 	}
-
 	const float PI = 3.14159265;
+	vec3 hash32(vec2 p) {
+		vec3 p3 = fract(vec3(p.xyx) * vec3(.1031, .1030, .0973));
+		p3 += dot(p3, p3.yxz+33.33);
+		return fract((p3.xxy+p3.yzz)*p3.zyx);
+	}
+
+
 	Particle_Sim gen_particle(uint i) {
 		float x = float(i);
 		vec3 center = vec3(0, 0, 0);
 
 		vec3 pos = u_center;
-		vec3 phi_y_r = vec3(hash22(vec2(x, 2)), hash22(vec2(x, 3)).x);
-		phi_y_r = vec3(phi_y_r.x * PI, phi_y_r.y, (phi_y_r.z * .2 + 1) * 4);
+		vec3 phi_y_r = hash32(vec2(x, 0));
+		phi_y_r = vec3(phi_y_r.x * 2 * PI, phi_y_r.y * 2 - 1, (phi_y_r.z * .3 + 1) * 4);
 
 		vec3 vel = phi_y_r.z * vec3(vec2(sin(phi_y_r.x), cos(phi_y_r.x)) * sqrt(1 - phi_y_r.y * phi_y_r.y),  phi_y_r.y);
 
-		float timer = 2 + .2 * hash22(vec2(x, 4)).x;
-		float size = 1.5 * (1.5 + hash22(vec2(x, 5)).x);
-		vec3 col = u_color + vec3(hash22(vec2(x, 6)), hash22(vec2(x, 7)).x) * .2;
-		col = clamp(col, vec3(0), vec3(1));
+		float timer = 2 + .2 * hash22(vec2(x, 1)).x;
+		float size = 3 * (1.5 + hash22(vec2(x, 2)).x);
+
+		vec3 col;
+		#ifdef JUSTRED
+			col = vec3(1, .2, .1);
+		#else
+			col = clamp(u_color + hash32(vec2(x, 3)) * .2, vec3(0), vec3(1));
+		#endif
 
 		return Particle_Sim(to_Vec3(pos), to_Vec3(vel), timer, size, to_Vec3(col), 0xFFFFFFFF);
 	}
@@ -741,6 +752,208 @@ SRC_PARTICLE_EMIT_COMP :: #string GLSL
 
 		uint id = atomicCounterIncrement(u_alive_counter);
 		sim_particles[id] = gen_particle(id);
-		
+	}
+GLSL
+
+SRC_CHUNK_TO_VBO_COMP :: #string GLSL
+	#version 430 core
+
+	struct Vec3 { float x, y, z; };
+	Vec3 to_Vec3(vec3 v) { return Vec3(v.x, v.y, v.z); }
+	vec3 from_Vec3(Vec3 v) { return vec3(v.x, v.y, v.z); }
+	struct Vec4 { float x, y, z, w; };
+	Vec4 to_Vec4(vec4 v) { return Vec4(v.x, v.y, v.z, v.w); }
+	vec4 from_Vec4(Vec4 v) { return vec4(v.x, v.y, v.z, v.w); }
+	struct Ivec4 { int x, y, z, w; };
+	Ivec4 to_Ivec4(ivec4 v) { return Ivec4(v.x, v.y, v.z, v.w); }
+	ivec4 from_Ivec4(Ivec4 v) { return ivec4(v.x, v.y, v.z, v.w); }
+	struct Ivec3 { int x, y, z; };
+	Ivec3 to_Ivec3(ivec3 v) { return Ivec3(v.x, v.y, v.z); }
+	ivec3 from_Ivec3(Ivec3 v) { return ivec3(v.x, v.y, v.z); }
+
+	struct Block {
+		uint type;
+	};
+	struct Face {
+		vec4 pos;
+		vec4 norm;
+		vec4 col;
+	};
+
+	layout(std430, binding = 0) buffer u_virtual_chunk {
+		Block blocks[];
+	};
+	layout(std430, binding = 1) buffer u_visual_chunk {
+		Face faces[];
+	};
+	layout (binding = 0) uniform atomic_uint u_face_counter;
+
+	vec3 hash33(vec3 p3) {
+		p3 = fract(p3 * vec3(.1031, .1030, .0973));
+		p3 += dot(p3, p3.yxz + 33.33);
+		return fract((p3.xxy + p3.yxx) * p3.zyx);
+	}
+	const uint CHUNK_SIZE = 16;
+	Block at(ivec3 p) {
+		if(p.x < 0 || p.y < 0 || p.z < 0 || p.x > CHUNK_SIZE || p.y > CHUNK_SIZE || p.z > CHUNK_SIZE) {
+			return Block(0);
+		}
+		return blocks[CHUNK_SIZE * CHUNK_SIZE * p.z + CHUNK_SIZE * p.y + p.x];
+	}
+	vec3 get_color(ivec3 p) {
+		vec3 col = hash33(vec3(p)) * .4 + .6;
+		return col / max(col.x, max(col.y, col.z));
+	}
+	void make_face(ivec3 p0, ivec3 dp) {
+		uint id = atomicCounterIncrement(u_face_counter);
+		faces[id] = Face(
+			vec4(vec3(p0), 0),
+			vec4(vec3(dp), 0),
+			vec4(get_color(p0), 0)
+		);
+	}
+	void try_make_face(ivec3 p0, ivec3 dp) {
+		Block b0 = at(p0), b1 = at(p0 + dp);
+		if(b0.type != 0 && b1.type == 0) {
+			make_face(p0, dp);
+		}
+	}
+
+	void main() {
+		ivec3 p0 = ivec3(gl_GlobalInvocationID.xyz);
+
+		if(p0.x < CHUNK_SIZE && p0.y < CHUNK_SIZE && p0.z < CHUNK_SIZE) {
+			try_make_face(p0, ivec3( 1,  0,  0));
+			try_make_face(p0, ivec3(-1,  0,  0));
+			try_make_face(p0, ivec3( 0,  1,  0));
+			try_make_face(p0, ivec3( 0, -1,  0));
+			try_make_face(p0, ivec3( 0,  0,  1));
+			try_make_face(p0, ivec3( 0,  0, -1));
+		}
+	}
+GLSL
+
+SRC_BLOCK_VERT :: #string GLSL
+	#version 430 core
+
+	layout (location = 0) in vec3 a_pos;
+	layout (location = 1) in vec3 a_norm;
+	layout (location = 2) in vec3 a_col;
+
+	uniform mat4 u_transform_p;
+	uniform mat4 u_transform_mv;
+
+	out struct Vert_Out {
+		vec3 norm;
+		vec3 col;
+	} vert_out;
+	
+	void main() {
+		gl_Position = vec4(a_pos, 1);
+		vert_out.norm = a_norm;
+		vert_out.col = a_col; 
+	}
+GLSL
+SRC_BLOCK_GEOM :: #string GLSL
+	#version 430 core
+
+	layout (points) in;
+	layout (triangle_strip, max_vertices = 4) out;
+
+	uniform mat4 u_transform_p;
+	uniform mat4 u_transform_mv;
+
+	const vec2 u_screen_size = vec2(1200, 800);
+	const float u_particle_size = 60;
+
+	in struct Vert_Out {
+		vec3 norm;
+		vec3 col;
+	} vert_out[];
+
+	out struct Geom_Out {
+		vec3 col;
+		vec2 uv;
+	} geom_out;
+
+	void add_point(vec4 p0, vec3 dp, vec2 uv) {
+		gl_Position = u_transform_p * u_transform_mv * (p0 + vec4(dp * .5, 0)); 
+		geom_out.uv = uv;
+		EmitVertex();
+	}
+
+	void main() {
+		vec3 n0 = vert_out[0].norm;
+		vec4 p0 = gl_in[0].gl_Position + vec4(n0 * .5, 0);
+		vec3 n1 = n0.yzx;
+		vec3 n2 = -cross(n0, n1);
+
+		geom_out.col = vert_out[0].col;
+
+		add_point(p0,   n1 + n2, vec2(1, 1));
+		add_point(p0,   n1 - n2, vec2(1, 0));
+		add_point(p0, - n1 + n2, vec2(0, 1));
+		add_point(p0, - n1 - n2, vec2(0, 0));
+
+		EndPrimitive();
+	}
+GLSL
+SRC_BLOCK_FRAG :: #string GLSL
+	#version 430 core
+
+	in struct Geom_Out {
+		vec3 col;
+		vec2 uv;
+	} geom_out;
+
+	// in struct Vert_Out {
+	// 	vec3 norm;
+	// 	vec3 col;
+	// } vert_out;
+
+	out vec4 o_color;
+	void main() {
+		// o_color = vec4(geom_out.uv, 0, 1);
+		o_color = vec4(geom_out.col, 1);
+		// o_color = vec4(1, 1, 0, 1);
+		// o_color = vec4(vert_out.col, 1);
+	}
+GLSL
+
+SRC_CHUNK_FILL_COMP :: #string GLSL
+	#version 430 core
+
+	struct Block {
+		uint type;
+	};
+
+	layout(std430, binding = 0) buffer u_virtual_chunk {
+		Block blocks[];
+	};
+
+	const uint CHUNK_SIZE = 16;
+	void set_block(ivec3 p, Block block) {
+		if(p.x < 0 || p.y < 0 || p.z < 0 || p.x > CHUNK_SIZE || p.y > CHUNK_SIZE || p.z > CHUNK_SIZE) {
+			return;
+		}
+		blocks[CHUNK_SIZE * CHUNK_SIZE * p.z + CHUNK_SIZE * p.y + p.x] = block;
+	}
+	vec3 hash33(vec3 p3) {
+		p3 = fract(p3 * vec3(.1031, .1030, .0973));
+		p3 += dot(p3, p3.yxz + 33.33);
+		return fract((p3.xxy + p3.yxx) * p3.zyx);
+	}
+
+
+	void main() {
+		ivec3 p0 = ivec3(gl_GlobalInvocationID.xyz);
+
+		if(p0.x < CHUNK_SIZE && p0.y < CHUNK_SIZE && p0.z < CHUNK_SIZE) {
+			// float h = hash33(vec3(p0)).x;
+			vec3 r = (vec3(p0) / 15) * 2 - 1;
+			float h = length(r) - .8;
+
+			set_block(p0, h > 0 ? Block(0) : Block(1));
+		}
 	}
 GLSL

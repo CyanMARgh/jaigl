@@ -1,5 +1,3 @@
-#import "stb_image";
-
 Texture :: struct {
 	id : u32;
 	width, height, dim : u32;

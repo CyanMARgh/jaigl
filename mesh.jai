@@ -7,9 +7,44 @@ Mesh :: struct {
 	points_count, indices_count : u32;
 	has_ebo : bool;
 }
+get_primary_type :: (t : *Type_Info) -> *Type_Info {
+	tt := t.type;
+	if tt == .STRUCT {
+		return get_primary_type((cast(*Type_Info_Struct)t).members[0].type);
+	}
+	return t;
+}
 add_attribs :: ($T : Type) {
+	stride : u32 = 0;
+	for m : type_info(T).members {
+		stride += xx m.type.runtime_size;
+	}
 	for m, i : type_info(T).members {
-		glVertexAttribPointer(xx i, xx (m.type.runtime_size / size_of(float)), GL_FLOAT, GL_FALSE, size_of(T), cast(*void) m.offset_in_bytes);
+		pt := get_primary_type(m.type);
+		data_type : GLenum;
+		if pt.type == .FLOAT {
+			data_type = GL_FLOAT;
+		} else if pt.type == .INTEGER {
+			signed := (cast(*Type_Info_Integer)pt).signed;
+			if pt.runtime_size == 4 && signed {
+				data_type = GL_INT;
+			} else {
+				print("invalid type : %\n", pt);
+				exit(1);
+			}
+		} else {
+			print("invalid type : %\n", pt);
+			exit(1);
+		}
+		print("glVertexAttribPointer: %, %, %, %, %, %\n",
+			i,
+			xx (m.type.runtime_size / pt.runtime_size),
+			ifx data_type == GL_INT then "INTEGER" else ifx data_type == GL_FLOAT then "FLOAT" else "???",
+			GL_FALSE,
+			stride,
+			m.offset_in_bytes
+		);
+		glVertexAttribPointer(xx i, xx (m.type.runtime_size / pt.runtime_size), data_type, GL_FALSE, stride, cast(*void) m.offset_in_bytes);
 		glEnableVertexAttribArray(xx i);
 	}
 }

@@ -125,6 +125,3 @@ load_mtl :: (mtl_path : string) -> File_MTL, bool {
 
 	return .{materials}, true;
 }
-
-// TODO
-// mesh_raw_soa -> Obj_File_Scene
