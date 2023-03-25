@@ -51,8 +51,11 @@ demo_3 :: () {
 			simp.clear_render_target(.1, .3, .3, 1);
 			glClear(GL_DEPTH_BUFFER_BIT);
 
+			mat_v, mat_p := get_transform_v_p(*camera, .{1200, 800});
+			//TODO set(*Shader, ..Any)
 			use(shader_to_nodes);
-				set(*shader_to_nodes, "u_transform", get_transform(*camera, .{xx width, xx height}));
+				set(*shader_to_nodes, "u_transform_mv", mat_v);
+				set(*shader_to_nodes, "u_transform_p", mat_p);
 				set(*shader_to_nodes, "u_max_nides", max_nodes);
 				set(*shader_to_nodes, "u_time", cast(float)current_time);
 				bind_as_storage(buf_heads, 0);

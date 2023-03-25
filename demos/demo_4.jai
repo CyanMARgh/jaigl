@@ -11,7 +11,7 @@ demo_4 :: () {
 	
 	// shader_generate := make_shader_c(SRC_PARTICLE_GEN_COMP); defer clear_shader(*shader_generate);
 	// shader_init := make_shader_c(SRC_PARTICLE_INIT_COMP); defer clear_shader(*shader_init);
-	shader_emit := make_shader_c(SRC_PARTICLE_EMIT_COMP, 8, 1, 1, .["JUSTRED"]); defer clear_shader(*shader_emit);
+	shader_emit := make_shader_c(SRC_PARTICLE_EMIT_COMP, 8, 1, 1); defer clear_shader(*shader_emit);
 	shader_pass := make_shader_c(SRC_PARTICLE_TO_VBO_COMP, 8, 1, 1); defer clear_shader(*shader_pass);
 	shader_simulate := make_shader_c(SRC_PARTICLE_SIMULATE_COMP, 16, 1, 1); defer clear_shader(*shader_simulate);
 
@@ -45,7 +45,6 @@ demo_4 :: () {
 			set(*shader_emit, "u_color", color);
 			set(*shader_emit, "u_center", center);
 		compute(`shader_emit, amount, 1, 1);
-		//        ^TODO remove param
 	}
 	get_color :: () -> vec3 {
 		// col := vec3.{random_get_zero_to_one(), random_get_zero_to_one(), random_get_zero_to_one()};

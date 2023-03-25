@@ -1,5 +1,6 @@
 demo_0 :: () {
 	mesh_raw_soa, ok := load_obj("res/cow.obj");
+	// mesh_raw_soa, ok := load_obj("res/6th_platonic_solid.obj");
 	if !ok {
 		print("missing file : res/cow.obj");
 		exit(1);
@@ -10,7 +11,7 @@ demo_0 :: () {
 	window := create_window(1200, 800, "model loading"); defer close_window(window);
 	win_state : Win_State;
 	simp.set_render_target(window);
-	camera : Camera;
+	camera : Camera = .{position = .{4, 1.5, 5}};
 
 	mesh := make_mesh_soa(mesh_raw_soa); defer clear_mesh(mesh);
 	shader := make_shader_vf(SRC_VERT, SRC_DRAW_NORMALS_FRAG); defer clear_shader(*shader);

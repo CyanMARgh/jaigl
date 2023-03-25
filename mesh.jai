@@ -24,6 +24,7 @@ add_attribs :: ($T : Type) {
 		data_type : GLenum;
 		if pt.type == .FLOAT {
 			data_type = GL_FLOAT;
+			glVertexAttribPointer(xx i, xx (m.type.runtime_size / pt.runtime_size), data_type, GL_FALSE, stride, cast(*void) m.offset_in_bytes);
 		} else if pt.type == .INTEGER {
 			signed := (cast(*Type_Info_Integer)pt).signed;
 			if pt.runtime_size == 4 && signed {
@@ -32,19 +33,12 @@ add_attribs :: ($T : Type) {
 				print("invalid type : %\n", pt);
 				exit(1);
 			}
+			glVertexAttribIPointer(xx i, xx (m.type.runtime_size / pt.runtime_size), data_type, stride, cast(*void) m.offset_in_bytes);
 		} else {
 			print("invalid type : %\n", pt);
 			exit(1);
 		}
-		print("glVertexAttribPointer: %, %, %, %, %, %\n",
-			i,
-			xx (m.type.runtime_size / pt.runtime_size),
-			ifx data_type == GL_INT then "INTEGER" else ifx data_type == GL_FLOAT then "FLOAT" else "???",
-			GL_FALSE,
-			stride,
-			m.offset_in_bytes
-		);
-		glVertexAttribPointer(xx i, xx (m.type.runtime_size / pt.runtime_size), data_type, GL_FALSE, stride, cast(*void) m.offset_in_bytes);
+
 		glEnableVertexAttribArray(xx i);
 	}
 }

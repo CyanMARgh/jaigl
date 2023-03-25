@@ -3,18 +3,21 @@
 #import "Process";
 #import "File";
 
-MAIN_DEMO :u8: 5; // set MAIN_DEMO = DEMO_COUNT to build all demos
+MAIN_DEMO :u8: 7; // set MAIN_DEMO = DEMO_COUNT to build all demos
 EXE_PREFIX :: "demo_"; 
 EXECS_DIR :: "execs";
 
 GEN_PACKS :: true;
 
-DEMO_COUNT :u8: 6;
+//TODO to struct
+DEMO_COUNT :u8: 8;
 resources_list :: []string.[
 	.["cow.obj"],
 	.["6th_platonic_solid.obj"],
 	.[],
 	.["cow.obj"],
+	.[],
+	.[],
 	.[],
 	.[]
 ];
@@ -24,7 +27,9 @@ names :: string.[
 	"pendulum fractal",	
 	"order independent transparency",
 	"advanced particles",
-	"voxels (wip)"
+	"voxels (wip)",
+	"integer in vbo (test)",
+	"watercolor"
 ];
 
 

@@ -115,6 +115,7 @@ SRC_SCREEN_FRAG :: #string GLSL
 		float d = texture(u_depth, vert_out.uv).x;
 		vec3 col =  texture(u_color, flip(vert_out.uv)).xyz;
 		o_color = vec4(gl_FragCoord.x < 600 ? vec3(linearize_depth(d)) : col, 1);
+		// o_color = vec4(vert_out.uv, 0, 1);
 	}
 GLSL
 
@@ -277,7 +278,8 @@ SRC_OIT_TO_NODES_FRAG :: #string GLSL
 		Node nodes[];
 	};
 	layout (binding = 0) uniform atomic_uint pixel_counter;
-	uniform uint max_nodes = 1200 * 800 * 5;
+	const vec2 u_screen_size = vec2(1200, 800);
+	uniform uint max_nodes = u_screen_size.x * u_screen_size.y * 5;
 	uniform float u_time = 0;
 
 	in struct Vert_Out {
@@ -313,18 +315,112 @@ SRC_OIT_FROM_NODES_FRAG :: #string GLSL
 	layout (std430, binding = 0) buffer u_lists {
 		Node nodes[];
 	};
+	const vec2 u_screen_size = vec2(1200, 800);
 
 	out vec4 o_color;
 
-	vec4 get_color() {
-		vec2 uv = fract(gl_FragCoord.xy / 100);
-		float sharpness = 100;
-		vec2 mask = clamp((uv - .5) * sharpness, 0., 1.);
-		float color = clamp((abs((fract(abs(uv.x-uv.y)*2.+.25)-.5)*2.)-.5)*sharpness/5.,0.,1.);
-		color = max(color, min(mask.x, mask.y)) * max(mask.x, mask.y);
-		color = .5 + color * .5;
+	// houndstooth
+	// vec4 get_color() {
+	// 	vec2 uv = fract(gl_FragCoord.xy / 100);
+	// 	float sharpness = 100;
+	// 	vec2 mask = clamp((uv - .5) * sharpness, 0., 1.);
+	// 	float color = clamp((abs((fract(abs(uv.x-uv.y)*2.+.25)-.5)*2.)-.5)*sharpness/5.,0.,1.);
+	// 	color = max(color, min(mask.x, mask.y)) * max(mask.x, mask.y);
+	// 	color = .5 + color * .5;
 
-		return vec4(color, color, color, 1);
+	// 	return vec4(color, color, color, 1);
+	// }
+
+	// paper
+	vec2 hash22(vec2 p) {
+	    p = p * mat2(127.1, 311.7, 269.5 ,183.3);
+		p = -1.0 + 2.0 * fract(sin(p) * 43758.5453123);
+		return sin(p * 6.283);
+	}
+	float perlin_level(vec2 p) {
+		vec2 pi = floor(p);
+	    vec2 pf = p - pi;
+	    vec2 w = pf;
+	    
+	    vec2
+	        d00 = hash22(pi + vec2(0., 0.)),
+	        d01 = hash22(pi + vec2(0., 1.)),
+	        d10 = hash22(pi + vec2(1., 0.)),
+	        d11 = hash22(pi + vec2(1., 1.));
+
+	    float
+	        f00 = dot(d00, pf - vec2(0., 0.)),
+	        f01 = dot(d01, pf - vec2(0., 1.)),
+	        f10 = dot(d10, pf - vec2(1., 0.)),
+	        f11 = dot(d11, pf - vec2(1., 1.));
+	    
+	    float
+	        m00 = f00 * (1. - w.x) * (1. - w.y),
+	        m01 = f01 * (1. - w.x) *        w.y,
+	        m10 = f10 *        w.x * (1. - w.y),
+	        m11 = f11 *        w.x *        w.y;
+	    
+	    return m00 + m01 + m10 + m11;   
+	}
+	vec3 perlin_level_full(vec2 p) {
+		vec2 pi = floor(p);
+	    vec2 pf = p - pi;
+	    vec2 w = pf * pf * (3. - 2. * pf);
+	        
+	    vec2
+	        d00 = hash22(pi + vec2(0., 0.)),
+	        d01 = hash22(pi + vec2(0., 1.)),
+	        d10 = hash22(pi + vec2(1., 0.)),
+	        d11 = hash22(pi + vec2(1., 1.));
+
+	    float
+	        f00 = dot(d00, pf - vec2(0., 0.)), // * (1-x) * (1-y)
+	        f01 = dot(d01, pf - vec2(0., 1.)), // * x * (1-y)
+	        f10 = dot(d10, pf - vec2(1., 0.)), // * (1 -x) * y
+	        f11 = dot(d11, pf - vec2(1., 1.)); // * x * y
+	    
+	    vec2 gw = 6. * (pf - pf * pf); 
+	    vec2
+	        g00 = d00 * (1. - w.x) * (1. - w.y) + f00 * vec2((w.y - 1.), (w.x - 1.)) * gw,
+	        g01 = d01 * (1. - w.x) * w.y        + f01 * vec2(-w.y, (1. - w.x)) * gw,
+	        g10 = d10 * w.x * (1. - w.y)        + f10 * vec2((1. - w.y),  -w.x) * gw,
+	        g11 = d11 * w.x * w.y               + f11 * vec2(w.y, w.x) * gw;
+	        
+	    float h = 
+	        f00 * (1. - w.x) * (1. - w.y) +
+	        f01 * (1. - w.x) * w.y +
+	        f10 * w.x * (1. - w.y) + 
+	        f11 * w.x * w.y;
+	    vec2 gh = g00 + g01 + g10 + g11;
+	    return vec3(h, gh); 
+	}
+	float perlin(vec2 p) {
+		float a = 1., r = 0., s=0.;    
+	    for(int i = 0; i < 8; i++) {
+	      r += a * perlin_level(p);
+	      s += a; p *= 2.; a *= .5;
+	    }
+	    return r / s;
+	}
+	vec3 perlin_full(vec2 p, int I) {
+	    vec3 r = vec3(0.);
+	    float a = 1., s = 0.;
+	    for(int i = 0; i < I; i++) {
+	      r += perlin_level_full(p) * vec3(a, 1., 1.);
+	      s += a; p *= 2.; a *= .5;
+	    }
+	    r /= s;    
+	    return vec3(r.x * .5 + .5, .5 * r.yz);
+	}
+	vec4 get_color() {
+		vec2 uv = gl_FragCoord.xy / vec2(u_screen_size.x, u_screen_size.y) * mat2(1., 0., 0., 1.) + 10.;    
+
+		uv *= 3.;    
+		vec2 offset = vec2(.2);
+		vec3 p = perlin_full(uv, 7);
+		vec3 color_paper = vec3(mix(vec3(0.0, 0.0, -.3), vec3(1.), dot(p.xz, offset) * .1 + .9));
+
+		return vec4(color_paper, 1);
 	}
 
 	void main() {
@@ -358,7 +454,7 @@ SRC_OIT_FROM_NODES_FRAG :: #string GLSL
 GLSL
 SRC_OIT_CLEAR_COMP :: #string GLSL
 	#version 430 core
-	layout(local_size_x = 8, local_size_y = 4, local_size_z = 1) in;
+	// layout(local_size_x = 8, local_size_y = 4, local_size_z = 1) in;
 	layout(r32ui, binding = 0) uniform uimage2D u_screen;
 
 	void main() {
@@ -775,9 +871,10 @@ SRC_CHUNK_TO_VBO_COMP :: #string GLSL
 		uint type;
 	};
 	struct Face {
-		vec4 pos;
-		vec4 norm;
-		vec4 col;
+		Vec3 pos;
+		Vec3 norm;
+		Vec3 col;
+		int extra;
 	};
 
 	layout(std430, binding = 0) buffer u_virtual_chunk {
@@ -807,9 +904,10 @@ SRC_CHUNK_TO_VBO_COMP :: #string GLSL
 	void make_face(ivec3 p0, ivec3 dp) {
 		uint id = atomicCounterIncrement(u_face_counter);
 		faces[id] = Face(
-			vec4(vec3(p0), 0),
-			vec4(vec3(dp), 0),
-			vec4(get_color(p0), 0)
+			to_Vec3(vec3(p0)),
+			to_Vec3(vec3(dp)),
+			to_Vec3(get_color(p0)),
+			(p0.x + p0.y + p0.z) % 2
 		);
 	}
 	void try_make_face(ivec3 p0, ivec3 dp) {
@@ -839,6 +937,7 @@ SRC_BLOCK_VERT :: #string GLSL
 	layout (location = 0) in vec3 a_pos;
 	layout (location = 1) in vec3 a_norm;
 	layout (location = 2) in vec3 a_col;
+	layout (location = 3) in int a_extra;
 
 	uniform mat4 u_transform_p;
 	uniform mat4 u_transform_mv;
@@ -851,7 +950,7 @@ SRC_BLOCK_VERT :: #string GLSL
 	void main() {
 		gl_Position = vec4(a_pos, 1);
 		vert_out.norm = a_norm;
-		vert_out.col = a_col; 
+		vert_out.col = a_extra == 1 ? a_col : vec3(0);
 	}
 GLSL
 SRC_BLOCK_GEOM :: #string GLSL
@@ -955,5 +1054,24 @@ SRC_CHUNK_FILL_COMP :: #string GLSL
 
 			set_block(p0, h > 0 ? Block(0) : Block(1));
 		}
+	}
+GLSL
+
+
+SRC_INT_TEST_VERT :: #string GLSL
+	#version 430 core
+
+	layout (location = 0) in int a_x;
+
+	void main() {
+		gl_Position = vec4(float(a_x) / 5, 0, 0, 1);
+	}
+GLSL
+SRC_INT_TEST_FRAG :: #string GLSL
+	#version 430 core
+
+	out vec4 o_color;
+	void main() {
+		o_color = vec4(1, 1, 0, 1);
 	}
 GLSL

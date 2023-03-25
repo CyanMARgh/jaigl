@@ -290,10 +290,17 @@ prepare :: (mesh : *Mesh_Raw_SOA, default_uv := vec2.{0, 0}, default_normal := v
 		for i : 0..f.count-1 vert_ids[i] = table_find_pointer(*unique_points, get_trplet(f, i));
 
 		for i : 1..f.count-2 {
-			n := normalize(cross(corners[i] - corners[0], corners[i + 1] - corners[0]));
-			vert_ids[0].nsum	 += n;
-			vert_ids[i].nsum	 += n;
-			vert_ids[i + 1].nsum += n;
+			e01 := normalize(corners[i] - corners[0]);
+			e12 := normalize(corners[i + 1] - corners[i]);
+			e20 := normalize(corners[0] - corners[i + 1]);
+
+			weighted_normal :: (u : vec3, v : vec3) -> vec3 {
+				return cross(u, v);
+			}
+
+			vert_ids[0].nsum	 += weighted_normal(e20, e01);
+			vert_ids[i].nsum	 += weighted_normal(e01, e12);
+			vert_ids[i + 1].nsum += weighted_normal(e12, e20);
 		}
 	}
 

@@ -13,6 +13,7 @@ Shader :: struct {
 	fields : Table(string, s32);
 	using options : Shader_Options;
 }
+// TODO add flags support
 make_shader_part :: (src : string, type : GLuint, options : Shader_Options = .{}) -> Shader_Part, bool {
 	id := glCreateShader(type);
 	lines := split(src, cast(u8) #char "\n");

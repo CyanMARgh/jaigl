@@ -42,9 +42,11 @@ demo_1 :: () {
 			glDepthMask(GL_TRUE);	
 			glEnable(GL_DEPTH_TEST);
 
+			mat_v, mat_p := get_transform_v_p(*camera, .{1200, 800});
+
 			use(shader_scene);
-				transform := get_transform(*camera, .{1200, 800});
-				set(*shader_scene, "u_transform", transform);
+				set(*shader_scene, "u_transform_mv", mat_v);
+				set(*shader_scene, "u_transform_p", mat_p);
 			draw(mesh_scene);			
 		}
 

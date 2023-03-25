@@ -1,5 +1,5 @@
 demo_5 :: () {
-	window := create_window(1200, 800, "model loading"); defer close_window(window);
+	window := create_window(1200, 800, "voxels"); defer close_window(window);
 	win_state : Win_State;
 	simp.set_render_target(window);
 	camera : Camera = .{position = .{7.5, 7.5, 20}};
@@ -11,9 +11,10 @@ demo_5 :: () {
 		x, y, z : s32;
 	}
 	Voxel_Face :: struct {
-		pos : vec4;
-		norm : vec4; // TODO -> u32
-		col : vec4;
+		pos : vec3;
+		norm : vec3; // TODO -> u32
+		col : vec3;
+		extra : s32;
 	}
 	print("S = %\n", size_of(Voxel_Face));
 	Block :: struct {
