@@ -3,7 +3,7 @@
 #import "Process";
 #import "File";
 
-MAIN_DEMO :u8: 7; // set MAIN_DEMO = DEMO_COUNT to build all demos
+MAIN_DEMO :u8: 3; // set MAIN_DEMO = DEMO_COUNT to build all demos
 EXE_PREFIX :: "demo_"; 
 EXECS_DIR :: "execs";
 
@@ -68,7 +68,7 @@ build_demo :: (demo_id : u32) {
 		// optimization_level = .RELEASE;
 
 		output_executable_name = sprint("%1%2", EXE_PREFIX, demo_id);
-		output_path = EXECS_DIR;
+		// output_path = EXECS_DIR;
 	}
 
 	set_build_options(target_options, w);
@@ -91,8 +91,11 @@ build_demo :: (demo_id : u32) {
 			}
 
 			case .COMPLETE;
-			#if OS == .LINUX run_command("mv", tprint("./%3/%1%2", EXE_PREFIX, demo_id, EXECS_DIR), tprint("./%4/%1%2%3", EXE_PREFIX, demo_id, EXE_SUFFIX, EXECS_DIR));
+	//TODO fix it
+			#if OS == .LINUX run_command("mv", tprint("./%1%2", EXE_PREFIX, demo_id), tprint("./%1%2%3", EXE_PREFIX, demo_id, EXE_SUFFIX));
 			#if GEN_PACKS pack(demo_id);
+			run_command("mv", tprint("./%1%2%3", EXE_PREFIX, demo_id, EXE_SUFFIX), tprint("./%4/%1%2%3", EXE_PREFIX, demo_id, EXE_SUFFIX, EXECS_DIR));
+
 			if demo_id == main_id make_link();
 			break;
 		}
@@ -111,7 +114,7 @@ pack :: (demo_id : u32) {
 	array_add(*args, "tar");
 	array_add(*args, "czf");
 	array_add(*args, tprint("./builds/result_%.tar.gz", demo_id));
-	array_add(*args, tprint("./%4/%1%2%3", EXE_PREFIX, demo_id, EXE_SUFFIX, EXECS_DIR));
+	array_add(*args, tprint("%1%2%3", EXE_PREFIX, demo_id, EXE_SUFFIX));
 	for s : resources_list[demo_id] {
 		array_add(*args, tprint("res/%", s));
 	}

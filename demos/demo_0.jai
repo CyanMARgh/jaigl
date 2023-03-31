@@ -1,8 +1,8 @@
 demo_0 :: () {
-	mesh_raw_soa, ok := load_obj("res/cow.obj");
-	// mesh_raw_soa, ok := load_obj("res/6th_platonic_solid.obj");
+	// mesh_raw_soa, ok := load_obj("res/sponza.obj");
+	mesh_raw_soa, ok := load_obj("res/6th_platonic_solid.obj");
 	if !ok {
-		print("missing file : res/cow.obj");
+		print("missing file : res/6th_platonic_solid.obj");
 		exit(1);
 	}
 	prepare(*mesh_raw_soa);
@@ -33,9 +33,11 @@ demo_0 :: () {
 		glEnable(GL_CULL_FACE);
 
 		mat_v, mat_p := get_transform_v_p(*camera, .{1200, 800});
+		factor := 1.;
+		mat_m := make_scale_matrix4(.{factor, factor, factor});
 
 		use(shader);
-			set(*shader, "u_transform_mv", mat_v);
+			set(*shader, "u_transform_mv", mat_v * mat_m);
 			set(*shader, "u_transform_p", mat_p);
 		draw(mesh);
 

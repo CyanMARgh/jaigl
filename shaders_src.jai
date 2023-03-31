@@ -279,7 +279,7 @@ SRC_OIT_TO_NODES_FRAG :: #string GLSL
 	};
 	layout (binding = 0) uniform atomic_uint pixel_counter;
 	const vec2 u_screen_size = vec2(1200, 800);
-	uniform uint max_nodes = u_screen_size.x * u_screen_size.y * 5;
+	uniform uint max_nodes = uint(u_screen_size.x) * uint(u_screen_size.y) * 5;
 	uniform float u_time = 0;
 
 	in struct Vert_Out {

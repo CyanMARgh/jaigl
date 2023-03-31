@@ -2,7 +2,15 @@ demo_7 :: () {
 	width, height : u32 = 1200, 800;
 	max_nodes : u32 =  width * height * 20;
 
-	mesh_particles := concat(gen_leaves(5000), gen_trunk(200)); defer clear_mesh_raw(mesh_particles);
+	mesh_particles := concat(
+		gen_tree(2, .{0,  1}),
+		// gen_tree(3, .{-2.5,  2}),
+		gen_tree(4, .{ 2,  2}),
+		// gen_tree(3, .{-2, -1}),
+		// gen_tree(5, .{ 2, -2}),
+	);
+
+	defer clear_mesh_raw(mesh_particles);
 
 	window := create_window(width, height, "watercolor"); defer close_window(window);
 	__active_window = window;
@@ -102,18 +110,26 @@ concat :: (meshes : ..Mesh_Raw) -> Mesh_Raw {
 	for meshes clear_mesh_raw(it);
 	return .{points_total, .[]};
 }
+gen_tree :: (size : float, pos : vec2) -> Mesh_Raw {
+	return concat(
+		gen_trunk(size, vec3.{pos.x, 0, pos.y}, cast(u32) (30 * size)),
+		gen_leaves(pow(size / 8, .5), vec3.{pos.x, size, pos.y}, cast(u32) (2000 * pow(size / 4, 1.5))),
+		gen_leaves(pow(size / 5, .5), vec3.{pos.x, size - 1, pos.y}, cast(u32) (50 * pow(size / 4, 1.5))),		
+	);
+}
 
-gen_trunk :: (count : u32) -> Mesh_Raw {
+gen_trunk :: (height : float, offset : vec3, count : u32) -> Mesh_Raw {
 	particles := NewArray(count, Particle);
-	s0, s1 :: .5,  2.;
-	h0, h1 :: .0, -4.;
-	r0, r1 :: .6,  1.3;
+	s0, s1 := .5,  2.;
+	h0, h1 := height, 0.;
+	r0, r1 := .6,  1.3;
+	k := hash22(offset.xy) * .5;
 
 	for * p, i : particles {
 		t := cast(float) i / count;
 		t *= t;
-		pos := vec3.{t * t * .2, mix(h0, h1, t), 0};
-		pos += vec3.{perlin(pos.xy * 5.), perlin(vec2.{pos.y, pos.x} * 5.), 0} * mix(r0, r1, t);
+		pos := vec3.{t * k.x, mix(h0, h1, t), t * k.y} + offset;
+		pos += vec3.{perlin(pos.xy * .5), perlin(vec2.{pos.y, pos.x} * 5.), 0} * mix(r0, r1, t) * (height / 3);
 		<<p = .{
 			pos,
 			.{0, 0, 0},
@@ -126,8 +142,15 @@ gen_trunk :: (count : u32) -> Mesh_Raw {
 	return .{particles_f, .[]};
 }
 
-gen_leaves :: (count : u32) -> Mesh_Raw {
+gen_leaves :: (size : float, offset : vec3, count : u32) -> Mesh_Raw {
 	particles := NewArray(count, Particle);
+
+	h := hash22(offset.xy);
+	col_offset := vec3.{1 + h.x * .1, 1 + h.y * .05, 1 + h.y * .1};
+
+	col_maj0 := (vec3.{253, 150, 255} / 255.) * col_offset;
+	col_maj1 := vec3.{1, 1, 1} * col_offset;
+	col_min := (vec3.{181, 9, 184} / 255.) * col_offset;
 
 	rand_vec3 :: (l : float, r : float) -> vec3 {
 		return .{
@@ -147,11 +170,8 @@ gen_leaves :: (count : u32) -> Mesh_Raw {
 	for * particles {
 		k1 := random_get_zero_to_one();
 		k2 := random_get_zero_to_one();
-		col_maj0 := vec3.{253, 150, 255} / 255.;
-		col_maj1 := vec3.{1, 1, 1};
-		col_min := vec3.{181, 9, 184} / 255.;
-		pos := vec3.{3, 2, 3} * rand_in_sphere();
-		pos += vec3.{perlin(pos.xy), 0, 0} * 2;
+		pos := vec3.{3, 2, 3} * rand_in_sphere() * size;
+		pos += vec3.{perlin(pos.xy), 0, 0} * 2 + offset;
 
 		<<it = .{
 			pos,
@@ -339,7 +359,7 @@ SRC_BLOT_OIT_DRAW_FRAG :: #string GLSL
 		float depth_factor = 1;																//clamp((d0 - d1) / 0.01, 0, 1);
 		float r = length(geom_out.uv) / 2;
 
-		float p1 = perlin(geom_out.uv * .8) * .6;
+		float p1 = perlin(geom_out.uv * .8) * .4;
 
 		float l = r - geom_out.size / 2 + p1;
 		// float dist_factor = l < geom_out.size ? 1 : 0; pow(clamp(1 - l, 0, 1), 2); 			//pow(max(1 - length(a_uv), 0), 2);
@@ -350,7 +370,7 @@ SRC_BLOT_OIT_DRAW_FRAG :: #string GLSL
 		mat2x2 Mv = mat2x2(H * v.x, v.y, -H * v.y, v.x);
 		float p2 = perlin(Mv * geom_out.uv + 1) * .3 + .5;
 
-		float dist_factor = l > 0 ? exp(-l * 10) : mix(.8, 1., exp(l * 3));
+		float dist_factor = l > 0 ? exp(-l * 30) : mix(.8, 1., exp(l * 3));
 
 		float brightness = depth_factor * dist_factor * time_factor * .5;
 		vec4 color = vec4(mix(geom_out.col_maj, geom_out.col_min, p2 * p2 * p2), brightness);
