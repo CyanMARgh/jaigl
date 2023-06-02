@@ -1,6 +1,5 @@
 #import "Basic"()(MEMORY_DEBUGGER=true);
 
-#placeholder DEMO_ID;
 #load "cmglib.jai";
 simp :: #import "Simp";
 

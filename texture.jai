@@ -26,7 +26,7 @@ make_texture :: (width : u32, height : u32, format : GLenum, channels : GLenum, 
 load_texture :: (path : string) -> Texture {
 	using result : Texture;
 
-	cstr_path := to_c_string("test.png"); defer free(cstr_path);
+	cstr_path := to_c_string(path); defer free(cstr_path);
 	data := stbi_load(cstr_path, xx *width, xx *height, xx *dim, 4); defer stbi_image_free(data);
 
 	print("loading texture (%): % x % x %\n", path, width, height, dim);

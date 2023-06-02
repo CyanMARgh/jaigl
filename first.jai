@@ -3,14 +3,14 @@
 #import "Process";
 #import "File";
 
-MAIN_DEMO :u8: 3; // set MAIN_DEMO = DEMO_COUNT to build all demos
+MAIN_DEMO :u8: 8; // set MAIN_DEMO = DEMO_COUNT to build all demos
 EXE_PREFIX :: "demo_"; 
 EXECS_DIR :: "execs";
 
 GEN_PACKS :: true;
 
 //TODO to struct
-DEMO_COUNT :u8: 8;
+DEMO_COUNT :u8: 9;
 resources_list :: []string.[
 	.["cow.obj"],
 	.["6th_platonic_solid.obj"],
@@ -19,7 +19,8 @@ resources_list :: []string.[
 	.[],
 	.[],
 	.[],
-	.[]
+	.[],
+	.["6th_platonic_solid.obj", "pattern.png"]
 ];
 names :: string.[
 	"loading models and calculating normals",	
@@ -29,7 +30,8 @@ names :: string.[
 	"advanced particles",
 	"voxels (wip)",
 	"integer in vbo (test)",
-	"watercolor"
+	"watercolor",
+	"magic eye renderer"
 ];
 
 
@@ -77,19 +79,11 @@ build_demo :: (demo_id : u32) {
 	add_build_file(tprint("%/main.jai", #filepath), w);
 	add_build_file(tprint("%/demos/demo_%.jai", #filepath, demo_id), w);
 	#if OS == .WINDOWS add_build_string("#run (#import \"Windows_Resources\").disable_runtime_console();", w);
+					add_build_string(sprint("DEMO_ID :: %;", demo_id), w);
 
 	while 1 {
 		message := compiler_wait_for_message();
 		if message.kind == {
-			case .PHASE;
-			msg_phase := cast(*Message_Phase) message;
-			if msg_phase.phase == .TYPECHECKED_ALL_WE_CAN {
-				if !added_defs {
-					add_build_string(sprint("DEMO_ID :: %;", demo_id), w);
-					added_defs = true;
-				}
-			}
-
 			case .COMPLETE;
 	//TODO fix it
 			#if OS == .LINUX run_command("mv", tprint("./%1%2", EXE_PREFIX, demo_id), tprint("./%1%2%3", EXE_PREFIX, demo_id, EXE_SUFFIX));
