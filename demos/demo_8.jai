@@ -1,5 +1,5 @@
 demo_8 :: () {
-window := create_window(1200, 800, "magic eye"); defer close_window(window);
+window := create_window(1920, 1080, "magic eye"); defer close_window(window);
 	win_state : Win_State;
 	simp.set_render_target(window);
 	camera : Camera;
@@ -20,7 +20,7 @@ window := create_window(1200, 800, "magic eye"); defer close_window(window);
 	shader_scene := make_shader_vf(SRC_VERT, SRC_DRAW_NORMALS_FRAG); defer clear_shader(*shader_scene);
 	shader_screen := make_shader_vf(SRC_SCREEN_VERT, SRC_SCREEN_STEREO_FRAG); defer clear_shader(*shader_screen);
 
-	frame_buffer := make_frame_buffer(1200, 800); defer clear_frame_buffer(*frame_buffer);
+	frame_buffer := make_frame_buffer(1920, 1080); defer clear_frame_buffer(*frame_buffer);
 
 	time := current_time_monotonic();
 	time0 := time;
@@ -45,7 +45,7 @@ window := create_window(1200, 800, "magic eye"); defer close_window(window);
 			glDepthMask(GL_TRUE);	
 			glEnable(GL_DEPTH_TEST);
 
-			mat_v, mat_p := get_transform_v_p(*camera, .{1200, 800});
+			mat_v, mat_p := get_transform_v_p(*camera, .{1920, 1080});
 
 			use(shader_scene);
 				set(*shader_scene, "u_transform_mv", mat_v);
@@ -82,15 +82,21 @@ SRC_SCREEN_STEREO_FRAG :: #string GLSL
 		vec2 uv;
 	} vert_out;
 
-	const vec2 resolution = vec2(1200, 800);
-	const float fPixelRepeat = 100.0;
-	const float fDepthScale = 650.0;
+	const vec2 resolution = vec2(1920, 1080);
+	const float fPixelRepeat = 250.0;
+	const float fDepthScale = 600.0;
 
 	const float stripes = 8;
 
 	out vec4 o_color;
 
 	float z_near = .01, z_far  = 100;
+	float delinearize_depth(float z0) {
+		float z1 = (2 * z_near * z_far) / z0;
+		float z2 = ((z_far + z_near) - z1) / (z_far - z_near);
+		float z3 = (z2 + 1) / 2;
+		return z3;
+	}
 	float linearize_depth(float depth)  {
 		float z = depth * 2 - 1; 
 		return (2 * z_near * z_far) / (z_far + z_near - z * (z_far - z_near));	
@@ -98,7 +104,10 @@ SRC_SCREEN_STEREO_FRAG :: #string GLSL
 	float get_depth(vec2 P) {
 		float d1 = texture(u_depth, P / resolution).r;
 		// float d2 = linearize_depth(d1);
-		return 1 - d1;
+		return (1 - delinearize_depth(
+					// pow(linearize_depth(d1), sin(u_time) > 0 ? 1 : 2)
+					pow(linearize_depth(d1), 1.6)
+		));
 	}
 	float hash12(vec2 p) {
 		vec3 p3  = fract(vec3(p.xyx) * .1031);
