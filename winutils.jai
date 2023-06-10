@@ -1,6 +1,6 @@
 camera_rail :: (using camera : *Camera, t : float) {
 	yaw, pitch = t * .1, 0;
-	position = rotate(vec3.{0, 1.5, 5}, Quaternion.{0, sin(yaw / 2), 0, cos(yaw / 2)});
+	position = rotate(vec3.{0, 3, 8}, Quaternion.{0, sin(yaw / 2), 0, cos(yaw / 2)});
 }
 
 close_window :: (window: Window_Type) {

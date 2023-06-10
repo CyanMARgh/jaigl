@@ -1,11 +1,17 @@
 demo_2 :: () {
-	window := create_window(1200, 800, "magnetic pendulum fractal"); defer close_window(window);
+	width, height : s32 = 1920, 1080; 
+
+	window := create_window(width, height, "magnetic pendulum fractal"); defer close_window(window);
+	ok : bool;
+	saved_window_info : Saved_Window_Info;	
+	ok, width, height = toggle_fullscreen(window, true, *saved_window_info);
+
 	win_state : Win_State;
 	simp.set_render_target(window);
 
 	mesh_screen := make_mesh(rect_src, Point_UV); defer clear_mesh(mesh_screen);
 
-	state_buf := make_image(1200, 800, GL_RGBA32F); defer clear_texture(state_buf);
+	state_buf := make_image(xx width, xx height, GL_RGBA32F); defer clear_texture(state_buf);
 
 	shader_screen := make_shader_vf(SRC_SCREEN_VERT, SRC_PENDULUM_SCREEN_FRAG); defer clear_shader(*shader_screen);
 	shader_init := make_shader_c(SRC_PENDULUM_INIT_COMP); defer clear_shader(*shader_init);
@@ -13,7 +19,7 @@ demo_2 :: () {
 
 	use(shader_init);
 		bind_as_storage(state_buf, 0);
-	compute(shader_init, 1200, 800, 1);	
+	compute(shader_init, xx width, xx height, 1);	
 	print("\n\n");
 
 	time := current_time_monotonic();
@@ -36,7 +42,8 @@ demo_2 :: () {
 				bind_as_storage(state_buf, 0);
 				set(*shader_iterate, "u_time", cast(float) current_time);
 				set(*shader_iterate, "u_dtime", cast(float) dt);
-			compute(shader_iterate, 1200, 800, 1);
+				// set(*shader_iterate)
+			compute(shader_iterate, xx width, xx height, 1);
 
 			use(shader_screen);
 				bind(state_buf, 0);

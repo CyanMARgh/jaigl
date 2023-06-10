@@ -1,6 +1,6 @@
 demo_7 :: () {
-	width, height : u32 = 1200, 800;
-	max_nodes : u32 =  width * height * 20;
+	width, height : s32 = 1920, 1080;
+	max_nodes : u32 = xx(width * height * 20);
 
 	mesh_particles := concat(
 		gen_tree(2, .{0,  1}),
@@ -13,6 +13,9 @@ demo_7 :: () {
 	defer clear_mesh_raw(mesh_particles);
 
 	window := create_window(width, height, "watercolor"); defer close_window(window);
+	ok : bool;
+	saved_window_info : Saved_Window_Info;	
+	ok, width, height = toggle_fullscreen(window, true, *saved_window_info);
 	__active_window = window;
 	simp.set_render_target(window);
 	win_state : Win_State;
@@ -28,8 +31,8 @@ demo_7 :: () {
 	}
 	buf_nodes := Shader_Storage.make(max_nodes, size_of(Color_Node)); defer clear(buf_nodes);
 	counter_nodes := Atomic_Counter.make(); defer clear(counter_nodes);
-												// TODO    	----. 
-	buf_heads := make_image(width, height, GL_R32UI);
+										// TODO    	----. 
+	buf_heads := make_image(xx width, xx height, GL_R32UI);
 
 	shader_to_nodes := make_shader_vgf(SRC_BLOT_DRAW_VERT, SRC_BLOT_DRAW_GEOM, SRC_BLOT_OIT_DRAW_FRAG); defer clear_shader(*shader_to_nodes);
 	shader_from_nodes := make_shader_vf(SRC_SCREEN_VERT, SRC_OIT_FROM_NODES_FRAG); defer clear_shader(*shader_from_nodes);
@@ -43,13 +46,15 @@ demo_7 :: () {
 		dt := to_float64_seconds(new_time - time); time = new_time;
 		current_time := to_float64_seconds(new_time - time0);
 		Input.update_window_events();
-		move_camera(*camera, xx dt, win_state.pressed_keys);
+		camera_rail(*camera, xx current_time);
+
+		// move_camera(*camera, xx dt, win_state.pressed_keys);
 		for Input.events_this_frame handle_event(*win_state, it);
 
 		// render
 		use(shader_reset);
 			bind_as_storage(buf_heads, 0);
-		compute(shader_reset, width, height, 1);
+		compute(shader_reset, xx width, xx height, 1);
 		reset(counter_nodes);
 
 		// scene
@@ -60,7 +65,7 @@ demo_7 :: () {
 			// glEnable(GL_BLEND);
 			// glBlendFunc(GL_SRC_ALPHA, GL_ONE);
 
-			mat_mvp := get_transform(*camera, .{1200, 800});
+			mat_mvp := get_transform(*camera, vec2.{xx width, xx height});
 			//TODO set(*Shader, ..Any)
 			use(shader_to_nodes);
 				set(*shader_to_nodes, "u_transform_mvp", mat_mvp);
@@ -70,6 +75,7 @@ demo_7 :: () {
 				bind_as_storage(buf_heads, 0);
 				bind(counter_nodes, 0);
 				bind(buf_nodes, 0);
+				set(*shader_to_nodes, "u_screen_size", vec2.{xx width, xx height});
 			draw(mesh_scene, GL_POINTS);
 		}
 
@@ -79,6 +85,7 @@ demo_7 :: () {
 			bind_as_storage(buf_heads, 0);
 			bind(counter_nodes, 0);
 			bind(buf_nodes, 0);
+			set(*shader_from_nodes, "u_screen_size", vec2.{xx width, xx height});
 		draw(mesh_screen);
 
 		simp.swap_buffers(window);
@@ -212,7 +219,7 @@ SRC_BLOT_DRAW_GEOM :: #string GLSL
 	layout (points) in;
 	layout (triangle_strip, max_vertices = 4) out;
 
-	const vec2 u_screen_size = vec2(1200, 800);
+	uniform vec2 u_screen_size;
 	const float u_particle_size = 60;
 
 	in struct Vert_Out {
@@ -260,7 +267,7 @@ GLSL
 SRC_BLOT_DRAW_FRAG :: #string GLSL
 	#version 430 core
 
-	const vec2 u_screen_size = vec2(1200, 800);
+	uniform vec2 u_screen_size;
 
 	in struct Geom_Out {
 		vec3 col_maj, col_min;
@@ -295,7 +302,7 @@ GLSL
 SRC_BLOT_OIT_DRAW_FRAG :: #string GLSL
 	#version 430 core
 
-	const vec2 u_screen_size = vec2(1200, 800);
+	uniform vec2 u_screen_size;
 
 	in struct Geom_Out {
 		vec3 col_maj, col_min;

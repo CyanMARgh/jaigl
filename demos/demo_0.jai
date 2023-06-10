@@ -9,8 +9,9 @@ demo_0 :: () {
 	defer clear_mesh_raw(mesh_raw_soa);
 
 	window := create_window(1200, 800, "model loading"); defer close_window(window);
-	win_state : Win_State;
 	simp.set_render_target(window);
+
+	win_state : Win_State;
 	camera : Camera = .{position = .{4, 1.5, 5}};
 
 	mesh := make_mesh_soa(mesh_raw_soa); defer clear_mesh(mesh);

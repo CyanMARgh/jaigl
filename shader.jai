@@ -139,6 +139,9 @@ find_id :: (s : *Shader, field : string) -> s32 {
 set :: (s : *Shader, field : string, value : float) {
 	glUniform1f(find_id(s, field), value);
 }
+set :: (s : *Shader, field : string, value : vec2) {
+	glUniform2f(find_id(s, field), value.x, value.y);
+}
 set :: (s : *Shader, field : string, value : vec3) {
 	glUniform3f(find_id(s, field), value.x, value.y, value.z);
 }

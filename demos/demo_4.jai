@@ -1,8 +1,14 @@
 demo_4 :: () {
+	width, height : s32 = 1920, 1080; 
+
 	PARTICLES_MAX :u32: 20000;
 	particles_alive : u32;
 
-	window := create_window(1200, 800, "advanced particles"); defer close_window(window);
+	window := create_window(width, height, "advanced particles"); defer close_window(window);
+	ok : bool;
+	saved_window_info : Saved_Window_Info;	
+	ok, width, height = toggle_fullscreen(window, true, *saved_window_info);
+
 	win_state : Win_State;
 	simp.set_render_target(window);
 	camera : Camera;
@@ -100,7 +106,7 @@ demo_4 :: () {
 		compute(shader_pass, particles_alive, 1, 1);
 
 		use(shader_draw);
-			set(*shader_draw, "u_transform", get_transform(*camera, .{1200, 800}));
+			set(*shader_draw, "u_transform", get_transform(*camera, .{xx width, xx height}));
 		draw(mesh_particles, GL_POINTS, particles_alive);
 
 		simp.swap_buffers(window);
