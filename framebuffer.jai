@@ -10,11 +10,19 @@ make_frame_buffer :: (_width : u32, _height : u32) -> Frame_Buffer, bool {
 
 	glGenFramebuffers(1, *fbo);
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-
-		tex_color = make_texture(_width, _height, GL_RGB, GL_RGB, GL_UNSIGNED_BYTE, .[GL_TEXTURE_MIN_FILTER, GL_NEAREST, GL_TEXTURE_MAG_FILTER, GL_NEAREST]);
+		tex_color = make_texture(_width, _height, GL_RGB, .[
+			GL_TEXTURE_MIN_FILTER, GL_NEAREST,
+			GL_TEXTURE_MAG_FILTER, GL_NEAREST],
+			null, GL_RGB, GL_UNSIGNED_BYTE,
+		);
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex_color.id, 0);
 
-		tex_depth = make_texture(_width, _height, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_FLOAT, .[GL_TEXTURE_MIN_FILTER, GL_NEAREST, GL_TEXTURE_MAG_FILTER, GL_NEAREST]);
+		tex_depth = make_texture(_width, _height, GL_DEPTH_COMPONENT, .[
+			GL_TEXTURE_MIN_FILTER, GL_NEAREST,
+			GL_TEXTURE_MAG_FILTER, GL_NEAREST
+			],
+			null, GL_DEPTH_COMPONENT, GL_FLOAT
+		);
 		glFramebufferTexture2D(GL_DEPTH_COMPONENT, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, tex_depth.id, 0);
 
 		glGenRenderbuffers(1, *rbo);

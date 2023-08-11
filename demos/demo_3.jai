@@ -16,14 +16,14 @@ demo_3 :: () {
 	mesh_screen := make_mesh(rect_src, Point_UV); defer clear_mesh(mesh_screen);
 
 	Color_Node :: struct {
-		color : vec4;
+		color : Vector4;
 		prev : u32;
 		depth : float;
 	}
 	buf_nodes := Shader_Storage.make(max_nodes, size_of(Color_Node)); defer clear(buf_nodes);
 	counter_nodes := Atomic_Counter.make(); defer clear(counter_nodes);
 	//											TODO    	----. 
-	buf_heads := make_image(width, height, GL_R32UI);
+	buf_heads := make_storage(width, height, GL_R32UI);
 
 	shader_to_nodes := make_shader_vf(SRC_VERT, SRC_OIT_TO_NODES_FRAG); defer clear_shader(*shader_to_nodes);
 	shader_from_nodes := make_shader_vf(SRC_SCREEN_VERT, SRC_OIT_FROM_NODES_FRAG); defer clear_shader(*shader_from_nodes);

@@ -15,7 +15,7 @@ window := create_window(1920, 1080, "magic eye"); defer close_window(window);
 	// shader := make_shader_vgf(SRC_PARTICLE_VERT, SRC_PARTICLE_GEOM, SRC_PARTICLE_FRAG); defer clear_shader(*shader);
 	mesh_rect := make_mesh(rect_src, Point_UV); defer clear_mesh(mesh_rect);
 
-	pattern := load_texture("res/pattern.png");
+	// pattern := load_texture("res/pattern.png");
 
 	shader_scene := make_shader_vf(SRC_VERT, SRC_DRAW_NORMALS_FRAG); defer clear_shader(*shader_scene);
 	shader_screen := make_shader_vf(SRC_SCREEN_VERT, SRC_SCREEN_STEREO_FRAG); defer clear_shader(*shader_screen);
@@ -59,7 +59,7 @@ window := create_window(1920, 1080, "magic eye"); defer close_window(window);
 		use(shader_screen);
 			bind(frame_buffer.tex_color, 0);
 			bind(frame_buffer.tex_depth, 1);
-			bind(pattern, 2);
+			// bind(pattern, 2);
 			set(*shader_screen, "u_time", cast(float)current_time);
 		draw(mesh_rect);			
 
@@ -74,7 +74,7 @@ SRC_SCREEN_STEREO_FRAG :: #string GLSL
 
 	layout(binding = 0) uniform sampler2D u_color;
 	layout(binding = 1) uniform sampler2D u_depth;
-	layout(binding = 2) uniform sampler2D u_pattern;
+	// layout(binding = 2) uniform sampler2D u_pattern;
 
 	uniform float u_time;
 

@@ -1,6 +1,6 @@
 #import "Basic"()(MEMORY_DEBUGGER=true);
 
-#load "cmglib.jai";
+#load "module.jai";
 simp :: #import "Simp";
 
 main :: () {

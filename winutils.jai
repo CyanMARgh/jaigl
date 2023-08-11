@@ -1,6 +1,6 @@
 camera_rail :: (using camera : *Camera, t : float) {
 	yaw, pitch = t * .1, 0;
-	position = rotate(vec3.{0, 3, 8}, Quaternion.{0, sin(yaw / 2), 0, cos(yaw / 2)});
+	position = rotate(Vector3.{0, 3, 8}, Quaternion.{0, sin(yaw / 2), 0, cos(yaw / 2)});
 }
 
 close_window :: (window: Window_Type) {
@@ -43,10 +43,8 @@ copy_screen_shot_to_clipboard :: () {
 	width, height := simp.get_render_dimensions(__active_window);
 	pixels := NewArray(3 * width * height, u8); defer array_free(pixels);
 	glReadPixels(0, 0, xx width, xx height, GL_RGB, GL_UNSIGNED_BYTE, xx pixels.data);
-	filename := "output.png\0";
+	filename := tprint("screenshots/%.png\0", calendar_to_string(to_calendar(current_time_consensus())));
 	result := stbi_write_png(xx filename.data, width, height, 3, xx pixels.data, width * 3);
-
-
 
 	// Convert to FreeImage format & save to file
 	// FIBITMAP* image = FreeImage_ConvertFromRawBits(pixels, width, height, 3 * width, 24, 0x0000FF, 0xFF0000, 0x00FF00, false);

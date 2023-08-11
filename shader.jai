@@ -117,13 +117,13 @@ clear_shader :: (using s : *Shader) {
 use :: (using s : Shader) {
 	glUseProgram(id);
 }
-compute :: (using s : Shader, dimx : u32 = 1, dimy : u32 = 1, dimz : u32 = 1, barrier := GL_ALL_BARRIER_BITS, sizelim : u32 = 100000) {
+compute :: (using s : Shader, dimx : u32 = 1, dimy : u32 = 1, dimz : u32 = 1, do_barrier := true, barrier : u32 = GL_ALL_BARRIER_BITS, sizelim : u32 = 100000) {
 	if dimx > 0 && dimy > 0 && dimz > 0 && dimx < sizelim && dimy < sizelim && dimz < sizelim {
 		sx, sy, sz := (dimx - 1) / gsx + 1, (dimy - 1) / gsy + 1, (dimz - 1) / gsz + 1;
 		// print("sx, sy, sz = %, %, %\n", sx, sy, sz);
 		// print("block dims: % % %\n", gsx, gsy, gsz);
 		glDispatchCompute(sx, sy, sz);
-		glMemoryBarrier(GL_ALL_BARRIER_BITS);		
+		if do_barrier glMemoryBarrier(barrier);		
 	}
 }
 
@@ -139,10 +139,10 @@ find_id :: (s : *Shader, field : string) -> s32 {
 set :: (s : *Shader, field : string, value : float) {
 	glUniform1f(find_id(s, field), value);
 }
-set :: (s : *Shader, field : string, value : vec2) {
+set :: (s : *Shader, field : string, value : Vector2) {
 	glUniform2f(find_id(s, field), value.x, value.y);
 }
-set :: (s : *Shader, field : string, value : vec3) {
+set :: (s : *Shader, field : string, value : Vector3) {
 	glUniform3f(find_id(s, field), value.x, value.y, value.z);
 }
 set :: (s : *Shader, field : string, value : Matrix4) {
@@ -150,6 +150,12 @@ set :: (s : *Shader, field : string, value : Matrix4) {
 }
 set :: (s : *Shader, field : string, value : u32) {
 	glUniform1ui(find_id(s, field), value);
+}
+set :: (s : *Shader, field : string, value : s32) {
+	glUniform1i(find_id(s, field), value);
+}
+set :: (s : *Shader, field : string, value : ivec2) {
+	glUniform2i(find_id(s, field), value.x, value.y);
 }
 
 // with :: (s : *Shader, code : Code, dimx : u32, dimy : u32 = 1, dimz : u32 = 1, barrier := GL_ALL_BARRIER_BITS, sizelim : u32 = 100000) #expand {

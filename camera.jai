@@ -1,13 +1,13 @@
 Camera :: struct {
 	yaw, pitch : float;
-	position := vec3.{0, 0, 8};
+	position := Vector3.{0, 0, 8};
 
 	pitch_limit := PI * .5;
 }
-move_camera :: (using cam : *Camera, dt : float, pressed_keys : [1024]bool) {
-	linear_speed, angular_speed := 4., 2.;
+move_camera :: (using cam : *Camera, dt : float, pressed_keys : [1024]bool, speed_factor := 1.) {
+	linear_speed, angular_speed := 4. * speed_factor, 2.;
 	d_yaw, d_pitch := 0.;
-	direction : vec3;
+	direction : Vector3;
 
 	if pressed_keys[#char "W"] 		   direction.z -= 1;
 	if pressed_keys[#char "S"] 		   direction.z += 1;
@@ -35,12 +35,12 @@ print_mat :: (mat : Matrix4) {
 	}
 	print("\n");
 }
-get_transform :: (using cam : *Camera, ws : vec2) -> Matrix4 {
+get_transform :: (using cam : *Camera, ws : Vector2) -> Matrix4 {
 	v, p := get_transform_v_p(cam, ws);
 	return p * v;
 }
 
-get_transform_v_p :: (using cam : *Camera, ws : vec2) -> Matrix4, Matrix4 {
+get_transform_v_p :: (using cam : *Camera, ws : Vector2) -> Matrix4, Matrix4 {
 	move := make_translation_matrix4(-position);
 	rotate := rotation_matrix(Matrix4, 
 		Quaternion.{sin(-pitch / 2), 0, 0, cos(-pitch / 2)} * 

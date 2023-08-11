@@ -11,16 +11,16 @@ rect_src :: Mesh_Raw.{
 };
 
 Point :: struct {
-	pos : vec3;
+	pos : Vector3;
 }
 Point_UV :: struct {
-	pos : vec3;
-	uv : vec2;
+	pos : Vector3;
+	uv : Vector2;
 }
 Point_UV_N :: struct {
-	pos : vec3;
-	uv : vec2;
-	n : vec3;	
+	pos : Vector3;
+	uv : Vector2;
+	n : Vector3;	
 }
 Mesh_Raw :: struct {
 	points : []float;
@@ -46,9 +46,9 @@ Face :: struct {
 	type := Ftype.INVALID;
 }
 Mesh_Raw_SOA :: struct {
-	points  : []vec3;
-	uvs     : []vec2;
-	normals : []vec3;
+	points  : []Vector3;
+	uvs     : []Vector2;
+	normals : []Vector3;
 	union {
 		faces : []Face;
 		indices : []u32;
@@ -109,9 +109,9 @@ load_obj :: (obj_path: string) -> Mesh_Raw_SOA, bool {
 	defer free(obj_data);
 	obj_view := obj_data;
 
-	points : [..]vec3;
-	uvs : [..]vec2;
-	normals : [..]vec3;
+	points : [..]Vector3;
+	uvs : [..]Vector2;
+	normals : [..]Vector3;
 	faces : [..]Face;
 	most_general := Ftype.INVALID;
 
@@ -213,16 +213,16 @@ load_obj :: (obj_path: string) -> Mesh_Raw_SOA, bool {
 
 		if prefix == {
 			case "v";
-			pos : vec3; ok_v : bool;
-			pos, ok_v = parse_vec(*line, vec3); end(ok_v, "(0)");
+			pos : Vector3; ok_v : bool;
+			pos, ok_v = parse_vec(*line, Vector3); end(ok_v, "(0)");
 			array_add(*points, pos);
 
 			case "vt";
-			uv, ok_vt := parse_vec(*line, vec2); end(ok_vt, "(1)");
+			uv, ok_vt := parse_vec(*line, Vector2); end(ok_vt, "(1)");
 			array_add(*uvs, uv);
 
 			case "vn";
-			pos, ok_vn := parse_vec(*line, vec3); end(ok_vn, "(2)");
+			pos, ok_vn := parse_vec(*line, Vector3); end(ok_vn, "(2)");
 			array_add(*normals, pos);
 
 			case "f";
@@ -249,7 +249,7 @@ load_obj :: (obj_path: string) -> Mesh_Raw_SOA, bool {
 	return .{points=points, uvs=uvs, normals=normals, faces=faces, most_general=most_general}, true;
 }
 
-prepare :: (mesh : *Mesh_Raw_SOA, default_uv := vec2.{0, 0}, default_normal := vec3.{0, 0, 0}) -> int {
+prepare :: (mesh : *Mesh_Raw_SOA, default_uv := Vector2.{0, 0}, default_normal := Vector3.{0, 0, 0}) -> int {
 	add_smooth_normals := true;
 	add_flat_normals := false;
 
@@ -268,7 +268,7 @@ prepare :: (mesh : *Mesh_Raw_SOA, default_uv := vec2.{0, 0}, default_normal := v
 		return res;
 	}
 
-	Unique_Point :: struct { id : int; nsum : vec3; }
+	Unique_Point :: struct { id : int; nsum : Vector3; }
 
 	unique_points : Table([3]int, Unique_Point, triplet_hash, triplet_cmp);
 	init(*unique_points); defer deinit(*unique_points);
@@ -277,7 +277,7 @@ prepare :: (mesh : *Mesh_Raw_SOA, default_uv := vec2.{0, 0}, default_normal := v
 	for f : mesh.faces {
 		points_count += 3 * (f.count - 2);
 		vert_ids : [Face.MAX_POINTS]*Unique_Point;
-		corners : [Face.MAX_POINTS]vec3;
+		corners : [Face.MAX_POINTS]Vector3;
 
 		for i : 0..f.count-1 {
 			triplet := get_trplet(f, i);
@@ -294,7 +294,7 @@ prepare :: (mesh : *Mesh_Raw_SOA, default_uv := vec2.{0, 0}, default_normal := v
 			e12 := normalize(corners[i + 1] - corners[i]);
 			e20 := normalize(corners[0] - corners[i + 1]);
 
-			weighted_normal :: (u : vec3, v : vec3) -> vec3 {
+			weighted_normal :: (u : Vector3, v : Vector3) -> Vector3 {
 				return cross(u, v);
 			}
 
@@ -304,9 +304,9 @@ prepare :: (mesh : *Mesh_Raw_SOA, default_uv := vec2.{0, 0}, default_normal := v
 		}
 	}
 
-	single_point_size := size_of(vec3)
-						+ (ifx mesh.most_general & .UV & 6 then size_of(vec2) else 0)
-						+ (ifx mesh.most_general & .N & 6 then size_of(vec3) else 0);
+	single_point_size := size_of(Vector3)
+						+ (ifx mesh.most_general & .UV & 6 then size_of(Vector2) else 0)
+						+ (ifx mesh.most_general & .N & 6 then size_of(Vector3) else 0);
 
 	size_with_no_ebo := points_count * single_point_size;
 	size_with_ebo := unique_points.count * single_point_size + points_count * size_of(u32);
@@ -315,8 +315,8 @@ prepare :: (mesh : *Mesh_Raw_SOA, default_uv := vec2.{0, 0}, default_normal := v
 	use_ebo := size_with_ebo < size_with_no_ebo && !add_flat_normals;
 	print("use_ebo = %\n", use_ebo);
 
-	points_new, normals_new : [..]vec3;
-	uvs_new : [..]vec2;
+	points_new, normals_new : [..]Vector3;
+	uvs_new : [..]Vector2;
 	indices : [..]u32;
 
 	if use_ebo {
@@ -361,7 +361,7 @@ prepare :: (mesh : *Mesh_Raw_SOA, default_uv := vec2.{0, 0}, default_normal := v
 			array_reserve(*normals_new, points_count);
 		}
 
-		add_point :: (f : Face, i : u32/*, n_flat := vec3.{}*/) #expand {
+		add_point :: (f : Face, i : u32/*, n_flat := Vector3.{}*/) #expand {
 			array_add(*`points_new, `mesh.points[f.ids[i * 3]]);
 			if `mesh.most_general & .UV & 6 array_add(*`uvs_new, `mesh.uvs[f.ids[i * 3 + 1]]);
 			if mesh.most_general & .N & 6 {
@@ -370,7 +370,7 @@ prepare :: (mesh : *Mesh_Raw_SOA, default_uv := vec2.{0, 0}, default_normal := v
 				vert, ok := table_find(*`unique_points, get_trplet(f, i)); if !ok exit(1);
 				array_add(*`normals_new, normalize(vert.nsum));
 			} else if `add_flat_normals {
-				corners : [3]vec3;
+				corners : [3]Vector3;
 				for i : 0..2 corners[i] = mesh.points[f.ids[i * 3]];
 				n := normalize(cross(corners[1] - corners[0], corners[2] - corners[0]));
 				array_add(*`normals_new, n);

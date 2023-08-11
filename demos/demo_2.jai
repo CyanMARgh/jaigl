@@ -11,7 +11,7 @@ demo_2 :: () {
 
 	mesh_screen := make_mesh(rect_src, Point_UV); defer clear_mesh(mesh_screen);
 
-	state_buf := make_image(xx width, xx height, GL_RGBA32F); defer clear_texture(state_buf);
+	state_buf := make_storage(xx width, xx height, GL_RGBA32F); defer clear_texture(state_buf);
 
 	shader_screen := make_shader_vf(SRC_SCREEN_VERT, SRC_PENDULUM_SCREEN_FRAG); defer clear_shader(*shader_screen);
 	shader_init := make_shader_c(SRC_PENDULUM_INIT_COMP); defer clear_shader(*shader_init);

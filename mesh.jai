@@ -60,25 +60,25 @@ make_mesh_soa :: (mesh_raw_soa : Mesh_Raw_SOA, draw_mode := GL_STATIC_DRAW) -> M
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh_raw_soa.indices.count * size_of(u32), mesh_raw_soa.indices.data, xx draw_mode);
 	}
 
-	s_points := mesh_raw_soa.points.count * size_of(vec3);
-	s_uvs    := mesh_raw_soa.uvs.count * size_of(vec2);
-	s_normals:= mesh_raw_soa.normals.count * size_of(vec3);
+	s_points := mesh_raw_soa.points.count * size_of(Vector3);
+	s_uvs    := mesh_raw_soa.uvs.count * size_of(Vector2);
+	s_normals:= mesh_raw_soa.normals.count * size_of(Vector3);
 	vbo_size := s_points + s_uvs + s_normals;
 	glBufferData(GL_ARRAY_BUFFER, vbo_size, null, xx draw_mode);
 
 	glBufferSubData(GL_ARRAY_BUFFER, 0, s_points, mesh_raw_soa.points.data);
 	//                    i
-	glVertexAttribPointer(0, xx (size_of(vec3) / size_of(float)), GL_FLOAT, GL_FALSE, 0, cast(*void) 0);
+	glVertexAttribPointer(0, xx (size_of(Vector3) / size_of(float)), GL_FLOAT, GL_FALSE, 0, cast(*void) 0);
 	glEnableVertexAttribArray(0);
 
 	glBufferSubData(GL_ARRAY_BUFFER, s_points, s_uvs, mesh_raw_soa.uvs.data);
 	//                    i
-	glVertexAttribPointer(1, xx (size_of(vec2) / size_of(float)), GL_FLOAT, GL_FALSE, 0, cast(*void) s_points);
+	glVertexAttribPointer(1, xx (size_of(Vector2) / size_of(float)), GL_FLOAT, GL_FALSE, 0, cast(*void) s_points);
 	glEnableVertexAttribArray(1);
 
 	glBufferSubData(GL_ARRAY_BUFFER, s_points + s_uvs, s_normals, mesh_raw_soa.normals.data);
 	//                    i
-	glVertexAttribPointer(2, xx (size_of(vec3) / size_of(float)), GL_FLOAT, GL_FALSE, 0, cast(*void) s_points + s_uvs);
+	glVertexAttribPointer(2, xx (size_of(Vector3) / size_of(float)), GL_FLOAT, GL_FALSE, 0, cast(*void) s_points + s_uvs);
 	glEnableVertexAttribArray(2);
 
 	glBindVertexArray(0);

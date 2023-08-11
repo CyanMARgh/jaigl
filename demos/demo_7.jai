@@ -25,14 +25,14 @@ demo_7 :: () {
 	mesh_screen := make_mesh(rect_src, Point_UV); defer clear_mesh(mesh_screen);
 
 	Color_Node :: struct {
-		color : vec4;
+		color : Vector4;
 		prev : u32;
 		depth : float;
 	}
 	buf_nodes := Shader_Storage.make(max_nodes, size_of(Color_Node)); defer clear(buf_nodes);
 	counter_nodes := Atomic_Counter.make(); defer clear(counter_nodes);
 										// TODO    	----. 
-	buf_heads := make_image(xx width, xx height, GL_R32UI);
+	buf_heads := make_storage(xx width, xx height, GL_R32UI);
 
 	shader_to_nodes := make_shader_vgf(SRC_BLOT_DRAW_VERT, SRC_BLOT_DRAW_GEOM, SRC_BLOT_OIT_DRAW_FRAG); defer clear_shader(*shader_to_nodes);
 	shader_from_nodes := make_shader_vf(SRC_SCREEN_VERT, SRC_OIT_FROM_NODES_FRAG); defer clear_shader(*shader_from_nodes);
@@ -65,7 +65,7 @@ demo_7 :: () {
 			// glEnable(GL_BLEND);
 			// glBlendFunc(GL_SRC_ALPHA, GL_ONE);
 
-			mat_mvp := get_transform(*camera, vec2.{xx width, xx height});
+			mat_mvp := get_transform(*camera, Vector2.{xx width, xx height});
 			//TODO set(*Shader, ..Any)
 			use(shader_to_nodes);
 				set(*shader_to_nodes, "u_transform_mvp", mat_mvp);
@@ -75,7 +75,7 @@ demo_7 :: () {
 				bind_as_storage(buf_heads, 0);
 				bind(counter_nodes, 0);
 				bind(buf_nodes, 0);
-				set(*shader_to_nodes, "u_screen_size", vec2.{xx width, xx height});
+				set(*shader_to_nodes, "u_screen_size", Vector2.{xx width, xx height});
 			draw(mesh_scene, GL_POINTS);
 		}
 
@@ -85,7 +85,7 @@ demo_7 :: () {
 			bind_as_storage(buf_heads, 0);
 			bind(counter_nodes, 0);
 			bind(buf_nodes, 0);
-			set(*shader_from_nodes, "u_screen_size", vec2.{xx width, xx height});
+			set(*shader_from_nodes, "u_screen_size", Vector2.{xx width, xx height});
 		draw(mesh_screen);
 
 		simp.swap_buffers(window);
@@ -98,8 +98,8 @@ demo_7 :: () {
 #import "Random";
 
 Particle :: struct {
-	coord : vec3;
-	col_maj, col_min : vec3;
+	coord : Vector3;
+	col_maj, col_min : Vector3;
 	size : float;
 }
 concat :: (meshes : ..Mesh_Raw) -> Mesh_Raw {
@@ -117,15 +117,15 @@ concat :: (meshes : ..Mesh_Raw) -> Mesh_Raw {
 	for meshes clear_mesh_raw(it);
 	return .{points_total, .[]};
 }
-gen_tree :: (size : float, pos : vec2) -> Mesh_Raw {
+gen_tree :: (size : float, pos : Vector2) -> Mesh_Raw {
 	return concat(
-		gen_trunk(size, vec3.{pos.x, 0, pos.y}, cast(u32) (30 * size)),
-		gen_leaves(pow(size / 8, .5), vec3.{pos.x, size, pos.y}, cast(u32) (2000 * pow(size / 4, 1.5))),
-		gen_leaves(pow(size / 5, .5), vec3.{pos.x, size - 1, pos.y}, cast(u32) (50 * pow(size / 4, 1.5))),		
+		gen_trunk(size, .{pos.x, 0, pos.y}, cast(u32) (30 * size)),
+		gen_leaves(pow(size / 8, .5), .{pos.x, size, pos.y}, cast(u32) (2000 * pow(size / 4, 1.5))),
+		gen_leaves(pow(size / 5, .5), .{pos.x, size - 1, pos.y}, cast(u32) (50 * pow(size / 4, 1.5))),		
 	);
 }
 
-gen_trunk :: (height : float, offset : vec3, count : u32) -> Mesh_Raw {
+gen_trunk :: (height : float, offset : Vector3, count : u32) -> Mesh_Raw {
 	particles := NewArray(count, Particle);
 	s0, s1 := .5,  2.;
 	h0, h1 := height, 0.;
@@ -135,12 +135,12 @@ gen_trunk :: (height : float, offset : vec3, count : u32) -> Mesh_Raw {
 	for * p, i : particles {
 		t := cast(float) i / count;
 		t *= t;
-		pos := vec3.{t * k.x, mix(h0, h1, t), t * k.y} + offset;
-		pos += vec3.{perlin(pos.xy * .5), perlin(vec2.{pos.y, pos.x} * 5.), 0} * mix(r0, r1, t) * (height / 3);
+		pos := Vector3.{t * k.x, mix(h0, h1, t), t * k.y} + offset;
+		pos += Vector3.{perlin(pos.xy * .5), perlin(Vector2.{pos.y, pos.x} * 5.), 0} * mix(r0, r1, t) * (height / 3);
 		<<p = .{
 			pos,
 			.{0, 0, 0},
-			vec3.{181, 153, 107} / 255.,
+			Vector3.{181, 153, 107} / 255.,
 			mix(s0, s1, t)
 		};
 	}
@@ -149,25 +149,25 @@ gen_trunk :: (height : float, offset : vec3, count : u32) -> Mesh_Raw {
 	return .{particles_f, .[]};
 }
 
-gen_leaves :: (size : float, offset : vec3, count : u32) -> Mesh_Raw {
+gen_leaves :: (size : float, offset : Vector3, count : u32) -> Mesh_Raw {
 	particles := NewArray(count, Particle);
 
 	h := hash22(offset.xy);
-	col_offset := vec3.{1 + h.x * .1, 1 + h.y * .05, 1 + h.y * .1};
+	col_offset := Vector3.{1 + h.x * .1, 1 + h.y * .05, 1 + h.y * .1};
 
-	col_maj0 := (vec3.{253, 150, 255} / 255.) * col_offset;
-	col_maj1 := vec3.{1, 1, 1} * col_offset;
-	col_min := (vec3.{181, 9, 184} / 255.) * col_offset;
+	col_maj0 := (Vector3.{253, 150, 255} / 255.) * col_offset;
+	col_maj1 := Vector3.{1, 1, 1} * col_offset;
+	col_min := (Vector3.{181, 9, 184} / 255.) * col_offset;
 
-	rand_vec3 :: (l : float, r : float) -> vec3 {
+	rand_vec3 :: (l : float, r : float) -> Vector3 {
 		return .{
 			random_get_within_range(l, r),
 			random_get_within_range(l, r),
 			random_get_within_range(l, r)
 		};
 	}
-	rand_in_sphere :: () -> vec3 {
-		p := vec3.{1, 1, 1};
+	rand_in_sphere :: () -> Vector3 {
+		p := Vector3.{1, 1, 1};
 		while length(p) > 1 {
 			p = rand_vec3(-1, 1);
 		}
@@ -177,8 +177,8 @@ gen_leaves :: (size : float, offset : vec3, count : u32) -> Mesh_Raw {
 	for * particles {
 		k1 := random_get_zero_to_one();
 		k2 := random_get_zero_to_one();
-		pos := vec3.{3, 2, 3} * rand_in_sphere() * size;
-		pos += vec3.{perlin(pos.xy), 0, 0} * 2 + offset;
+		pos := Vector3.{3, 2, 3} * rand_in_sphere() * size;
+		pos += Vector3.{perlin(pos.xy), 0, 0} * 2 + offset;
 
 		<<it = .{
 			pos,

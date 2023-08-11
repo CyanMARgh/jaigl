@@ -18,7 +18,6 @@ get :: (using counter : Atomic_Counter) -> u32 {
 	val := << cast(*u32) ptr;
 	glUnmapBuffer(GL_ATOMIC_COUNTER_BUFFER);
 	return val;
-
 }
 clear :: (using counter : Atomic_Counter) {
 	glDeleteBuffers(1, *id);
@@ -41,6 +40,21 @@ Shader_Storage :: struct {
 		glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 		return result;
 	}
+	from_array :: (arr : []$T) -> Shader_Storage {
+		using result : Shader_Storage;
+		size = xx(arr.count * size_of(T));
+		glGenBuffers(1, *id);
+		glBindBuffer(GL_SHADER_STORAGE_BUFFER, id);
+			glBufferData(GL_SHADER_STORAGE_BUFFER, size, arr.data, GL_DYNAMIC_DRAW);
+		glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+		return result;
+	}
+}
+reupload :: (using storage : *Shader_Storage, new_arr : []$T) {
+	size = xx(arr.count * size_of(T));
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, id);
+		glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, size, new_arr.data);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 }
 clear :: (using storage : Shader_Storage) {
 	glDeleteBuffers(1, *id);

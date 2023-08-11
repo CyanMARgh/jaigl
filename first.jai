@@ -1,39 +1,36 @@
-#import "Basic";
-#import "Compiler";
-#import "Process";
-#import "File";
+IMPORT_EXTRA_PATH :: "/home/cyanmargh/projects/jai/";
 
-MAIN_DEMO :u8: 4; // set MAIN_DEMO = DEMO_COUNT to build all demos
+MAIN_DEMO :u8: 10; // set MAIN_DEMO = DEMO_COUNT to build all demos
 EXE_PREFIX :: "demo_"; 
 EXECS_DIR :: "execs";
 
 GEN_PACKS :: true;
 
-//TODO to struct
-DEMO_COUNT :u8: 9;
-resources_list :: []string.[
-	.["cow.obj"],
-	.["6th_platonic_solid.obj"],
-	.[],
-	.["cow.obj"],
-	.[],
-	.[],
-	.[],
-	.[],
-	.["6th_platonic_solid.obj", "pattern.png"]
-];
-names :: string.[
-	"loading models and calculating normals",	
-	"framebuffer test",	
-	"pendulum fractal",	
-	"order independent transparency",
-	"advanced particles",
-	"voxels (wip)",
-	"integer in vbo (test)",
-	"watercolor",
-	"magic eye renderer"
-];
+Demo_Data :: struct {
+	name : string;
+	resources : []string;
+}
 
+#import "Basic";
+#import "Compiler";
+#import "Process";
+#import "File";
+
+demos_data :: Demo_Data.[
+	.{"loading models and calculating normals", .["6th_platonic_solid.obj"]},	
+	.{"framebuffer test", .["6th_platonic_solid.obj"]},	
+	.{"pendulum fractal", .[]},	
+	.{"order independent transparency", .["cow.obj"]},
+	.{"advanced particles", .[]},
+	.{"voxels (wip)", .[]},
+	.{"integer in vbo (test)", .[]},
+	.{"watercolor", .[]},
+	.{"magic eye renderer", .["6th_platonic_solid.obj"]},
+	.{"filters", .["input_texture.png"]},
+	// .{"chunk map", .[]},
+	// .{"skin mask", .["skin.png", "uv64.png"]}
+];
+DEMO_COUNT :: demos_data.count;
 
 EXE_SUFFIX :: #run ifx OS == .WINDOWS then ".exe" else ".elf";
 #run {
@@ -53,12 +50,12 @@ EXE_SUFFIX :: #run ifx OS == .WINDOWS then ".exe" else ".elf";
 }
 
 
-build_demo :: (demo_id : u32) {
+build_demo :: (demo_id : int) {
 	main_id := ifx demo_id < DEMO_COUNT then demo_id else DEMO_COUNT - 1;
-	name := names[demo_id];
+	name := demos_data[demo_id].name;
 	added_defs := false;
 
-	w := compiler_create_workspace(names[demo_id]);
+	w := compiler_create_workspace(name);
 	if !w {
 		print("Workspace creation failed.\n");
 		return;
@@ -67,9 +64,12 @@ build_demo :: (demo_id : u32) {
 	target_options := get_build_options(w);
 	{
 		using target_options;
+		text_output_flags = 0;
 		// optimization_level = .RELEASE;
 
 		output_executable_name = sprint("%1%2", EXE_PREFIX, demo_id);
+		import_path = .[import_path[0], IMPORT_EXTRA_PATH];
+
 		// output_path = EXECS_DIR;
 	}
 
@@ -79,7 +79,7 @@ build_demo :: (demo_id : u32) {
 	add_build_file(tprint("%/main.jai", #filepath), w);
 	add_build_file(tprint("%/demos/demo_%.jai", #filepath, demo_id), w);
 	#if OS == .WINDOWS add_build_string("#run (#import \"Windows_Resources\").disable_runtime_console();", w);
-					add_build_string(sprint("DEMO_ID :: %;", demo_id), w);
+	add_build_string(sprint("DEMO_ID :: %;", demo_id), w);
 
 	while 1 {
 		message := compiler_wait_for_message();
@@ -102,14 +102,14 @@ make_link :: () {
 	run_command("ln", "-s", "-f", tprint("./%4/%1%2%3", EXE_PREFIX, id_active, EXE_SUFFIX, EXECS_DIR), tprint("main%", EXE_SUFFIX));
 }
 
-pack :: (demo_id : u32) {
+pack :: (demo_id : int) {
 	args : [..]string; defer array_free(args);
 
 	array_add(*args, "tar");
 	array_add(*args, "czf");
 	array_add(*args, tprint("./builds/result_%.tar.gz", demo_id));
 	array_add(*args, tprint("%1%2%3", EXE_PREFIX, demo_id, EXE_SUFFIX));
-	for s : resources_list[demo_id] {
+	for s : demos_data[demo_id].resources {
 		array_add(*args, tprint("res/%", s));
 	}
 	run_command(..args);
