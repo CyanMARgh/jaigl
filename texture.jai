@@ -19,6 +19,7 @@ make_texture :: (width : u32, height : u32, format : GLenum, params : []GLenum, 
 		}
 		if mipmap glGenerateMipmap(GL_TEXTURE_2D);
 	glBindTexture(GL_TEXTURE_2D, 0);
+
 	return result;
 }
 

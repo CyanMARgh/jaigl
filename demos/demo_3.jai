@@ -22,7 +22,7 @@ demo_3 :: () {
 	}
 	buf_nodes := Shader_Storage.make(max_nodes, size_of(Color_Node)); defer clear(buf_nodes);
 	counter_nodes := Atomic_Counter.make(); defer clear(counter_nodes);
-	//											TODO    	----. 
+	//											TODO
 	buf_heads := make_storage(width, height, GL_R32UI);
 
 	shader_to_nodes := make_shader_vf(SRC_VERT, SRC_OIT_TO_NODES_FRAG); defer clear_shader(*shader_to_nodes);
@@ -48,8 +48,8 @@ demo_3 :: () {
 
 		// scene
 		{
-			simp.clear_render_target(.1, .3, .3, 1);
-			glClear(GL_DEPTH_BUFFER_BIT);
+			// simp.clear_render_target(.1, .3, .3, 1);
+			// glClear(GL_DEPTH_BUFFER_BIT);
 
 			mat_v, mat_p := get_transform_v_p(*camera, .{1200, 800});
 			//TODO set(*Shader, ..Any)

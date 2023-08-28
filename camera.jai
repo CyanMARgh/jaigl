@@ -35,12 +35,12 @@ print_mat :: (mat : Matrix4) {
 	}
 	print("\n");
 }
-get_transform :: (using cam : *Camera, ws : Vector2) -> Matrix4 {
+get_transform :: (using cam : Camera, ws : Vector2) -> Matrix4 {
 	v, p := get_transform_v_p(cam, ws);
 	return p * v;
 }
 
-get_transform_v_p :: (using cam : *Camera, ws : Vector2) -> Matrix4, Matrix4 {
+get_transform_v_p :: (using cam : Camera, ws : Vector2) -> Matrix4, Matrix4 {
 	move := make_translation_matrix4(-position);
 	rotate := rotation_matrix(Matrix4, 
 		Quaternion.{sin(-pitch / 2), 0, 0, cos(-pitch / 2)} * 

@@ -1,234 +1,178 @@
 demo_5 :: () {
-	window := create_window(1200, 800, "voxels"); defer close_window(window);
+	width, height : s32 = 1920, 1080; 
+	PARTICLES_MAX :u32: 20000;
+
+	window := create_window(width, height, "advanced particles"); defer close_window(window);
+	saved_window_info : Saved_Window_Info;	
+	ok:, width, height = toggle_fullscreen(window, true, *saved_window_info);
+
 	win_state : Win_State;
 	simp.set_render_target(window);
-	camera : Camera = .{position = .{7.5, 7.5, 20}};
+	camera : Camera;
 
-	ivec4 :: struct {
-		x, y, z, w : s32;
-	}
-	ivec3 :: struct {
-		x, y, z : s32;
-	}
-	Voxel_Face :: struct {
-		pos : Vector3;
-		norm : Vector3; // TODO -> u32
-		col : Vector3;
-		extra : s32;
-	}
-	print("S = %\n", size_of(Voxel_Face));
-	Block :: struct {
-		type : u32;
-	}
+	particle_system : Particle_System; init(*particle_system, PARTICLES_MAX); defer deinit(*particle_system);
+	emitter : Emitter; init(*emitter); defer deinit(*emitter);
 
-	FACES_MAX :: 3000000;
-	CHUNK_DIM :: 200;
+	get_color :: () -> Vector3 { return hsv2rgb(.{random_get_within_range(0, 1), random_get_within_range(.7, 1.), 1}); }
+	get_center :: () -> Vector3 { return Vector3.{random_get_within_range(-1, 1), random_get_within_range(-1, 2), random_get_within_range(-1, 1)} * 3; }
 
-	mesh_surface := make_empty_mesh_no_ebo(FACES_MAX, Voxel_Face); defer clear_mesh(mesh_surface);
-	buf_chunk_0 := Shader_Storage.make(CHUNK_DIM * CHUNK_DIM * CHUNK_DIM, size_of(Block)); defer clear(buf_chunk_0);
-	buf_chunk_1 := Shader_Storage.make(CHUNK_DIM * CHUNK_DIM * CHUNK_DIM, size_of(Block)); defer clear(buf_chunk_1);
-	faces_counter := Atomic_Counter.make(); defer clear(faces_counter);
+	for i: 0..0 spawn(*particle_system, *emitter, 3000, get_color(), get_center());
 
-	shader_fill := make_shader_c(SRC_CHUNK_FILL_COMP, 8, 4, 1); defer clear_shader(*shader_fill);
-	shader_iterate := make_shader_c(SRC_CHUNK_ITERATE_COMP, 8, 4, 1); defer clear_shader(*shader_iterate);
-	shader_pass := make_shader_c(SRC_CHUNK_TO_VBO_COMP, 8, 4, 1); defer clear_shader(*shader_pass);
-	// shader_draw := make_shader_vf(SRC_BLOCK_VERT, SRC_BLOCK_FRAG); defer clear_shader(*shader_draw);
-	shader_draw := make_shader_vgf(SRC_BLOCK_VERT, SRC_BLOCK_GEOM, SRC_BLOCK_FRAG); defer clear_shader(*shader_draw);
-
+	//TODO macro for default loop
 	time := current_time_monotonic();
-	time_from_last_update := 0.;
-	update_delay := .1;
-	should_update :: () -> bool #expand {
-		`time_from_last_update += `dt;
-		if `time_from_last_update > update_delay {
-			`time_from_last_update -= update_delay;
-			return true;
-		}
-		return false;
-	}
-	fill :: (buf : Shader_Storage) #expand {
-		use(*shader_fill);
-			bind(buf, 0);
-			set(*shader_fill, "CHUNK_SIZE", cast(u32)CHUNK_DIM);
-		compute(shader_fill, CHUNK_DIM, CHUNK_DIM, CHUNK_DIM);
-	}
-	pass :: (buf : Shader_Storage) #expand {
-		reset(faces_counter);
-		use(*shader_pass);
-			bind(faces_counter, 0);
-			bind(buf, 0);
-			bind_vbo_as_storage(mesh_surface, 1);
-			set(*shader_pass, "CHUNK_SIZE", cast(u32)CHUNK_DIM);
-		compute(shader_pass, CHUNK_DIM, CHUNK_DIM, CHUNK_DIM);
-	}
-	iterate :: (buf_in : Shader_Storage, buf_out : Shader_Storage) #expand {
-		use(*shader_iterate);
-			bind(buf_in, 0);
-			bind(buf_out, 1);
-			set(*shader_iterate, "CHUNK_SIZE", cast(u32)CHUNK_DIM);
-		compute(shader_iterate, CHUNK_DIM, CHUNK_DIM, CHUNK_DIM);
-	}
-	swap_buffers :: () #expand {
-		buf_chunk_0, buf_chunk_1 = buf_chunk_1, buf_chunk_0;
-	}
-
-	fill(buf_chunk_0);
-	pass(buf_chunk_0);
-
+	time_last_spawn := time;
 	while !win_state.should_exit {
+		// input
 		new_time := current_time_monotonic();
-		dt := cast(float)to_float64_seconds(new_time - time); time = new_time;
-
+		dt := to_float64_seconds(new_time - time); time = new_time;
+		time_from_previous := to_float64_seconds(new_time - time_last_spawn);
 		Input.update_window_events();
-		move_camera(*camera, xx dt, win_state.pressed_keys, 3.);
-
+		move_camera(*camera, xx dt, win_state.pressed_keys);
 		for Input.events_this_frame handle_event(*win_state, it);
 
-		simp.clear_render_target(.1, .3, .3, 1);
+		//spawn
+		if time_from_previous > .5 {
+			time_last_spawn = new_time;
+			spawn(*particle_system, *emitter, 1000, get_color(), get_center());
+		}
 
+		// simulate
+		simulate(*particle_system, xx dt);
+		simp.clear_render_target(.0, .0, .0, 1);
 		glClear(GL_DEPTH_BUFFER_BIT);
-		glEnable(GL_DEPTH_TEST);
-		glEnable(GL_CULL_FACE);
-
-		mat_m := make_translation_matrix4(.{0., 1., 0.}) * make_scale_matrix4(.{.5, .5, .5});
-		mat_v, mat_p := get_transform_v_p(*camera, .{1200, 800});
-
-		// if should_update() {
-		// 	iterate(buf_chunk_0, buf_chunk_1);
-		// 	swap_buffers();
-		// 	pass(buf_chunk_0);
-		// 	// print("faces count = %\n", faces_count);
-		// }
-		faces_count := get(faces_counter);
-
-		use(shader_draw);
-			set(*shader_draw, "u_transform_mv", mat_v * mat_m);
-			set(*shader_draw, "u_transform_p", mat_p);
-		draw(mesh_surface, GL_POINTS, faces_count);
+		draw(particle_system, camera, .{xx width, xx height});
 
 		simp.swap_buffers(window);
 		reset_temporary_storage();
 		sleep_milliseconds(10);
 	}
 }
+
 #scope_file
+Particle :: struct {
+	pos : Vector3;
+	size : float;
+	color : Vector3;
+}
+Particle_Sim :: struct {
+	pos, vel : Vector3;
+	timer : float;
+	size : float;
+	color : Vector3;
+	repl : u32;
+}
+Particle_System :: struct {
+	max_particles : u32;
+	particles_alive : u32;
 
-SRC_CHUNK_TO_VBO_COMP :: #string GLSL
-	#version 430 core
+	buffer_particles_sim : Shader_Storage;
+	counter_alive : Atomic_Counter;
+	mesh_particles : Mesh;
 
-	struct Vec3 { float x, y, z; };
-	Vec3 to_Vec3(vec3 v) { return Vec3(v.x, v.y, v.z); }
-	vec3 from_Vec3(Vec3 v) { return vec3(v.x, v.y, v.z); }
-	struct Vec4 { float x, y, z, w; };
-	Vec4 to_Vec4(vec4 v) { return Vec4(v.x, v.y, v.z, v.w); }
-	vec4 from_Vec4(Vec4 v) { return vec4(v.x, v.y, v.z, v.w); }
-	struct Ivec4 { int x, y, z, w; };
-	Ivec4 to_Ivec4(ivec4 v) { return Ivec4(v.x, v.y, v.z, v.w); }
-	ivec4 from_Ivec4(Ivec4 v) { return ivec4(v.x, v.y, v.z, v.w); }
-	struct Ivec3 { int x, y, z; };
-	Ivec3 to_Ivec3(ivec3 v) { return Ivec3(v.x, v.y, v.z); }
-	ivec3 from_Ivec3(Ivec3 v) { return ivec3(v.x, v.y, v.z); }
+	shader_simulate : Shader;
+	shader_pass : Shader;
+	shader_draw : Shader;
+}
+init :: (using particle_system : *Particle_System, _max_particles : u32) {
+	max_particles = _max_particles;
+	mesh_particles = make_empty_mesh_no_ebo(max_particles, Particle);
+	buffer_particles_sim = Shader_Storage.make(max_particles, size_of(Particle_Sim));
+	counter_alive = Atomic_Counter.make();
+	reset(counter_alive, 0);
 
-	struct Block {
-		uint type;
-	};
-	struct Face {
-		Vec3 pos;
-		Vec3 norm;
-		Vec3 col;
-		int extra;
-	};
+	shader_simulate = make_shader_c(SRC_PARTICLE_SIMULATE_COMP, 16, 1, 1);
+	shader_pass = make_shader_c(SRC_PARTICLE_TO_VBO_COMP, 8, 1, 1);
+	shader_draw = make_shader_vf(SRC_PARTICLE_DRAW_VERT, SRC_PARTICLE_DRAW_FRAG);
+}
+deinit :: (using particle_system : *Particle_System) {
+	clear_shader(*shader_draw);
+	clear_shader(*shader_simulate);
+	clear_shader(*shader_pass);
 
-	layout(std430, binding = 0) buffer u_virtual_chunk {
-		Block blocks[];
-	};
-	layout(std430, binding = 1) buffer u_visual_chunk {
-		Face faces[];
-	};
-	layout (binding = 0) uniform atomic_uint u_face_counter;
+	clear(counter_alive);
+	clear(buffer_particles_sim);
+	clear_mesh(mesh_particles);
+}
+simulate :: (using particle_system : *Particle_System, dt : float) {
+	use(shader_simulate);
+		bind(buffer_particles_sim, 0);
+		bind(counter_alive, 0);
+		set(*shader_simulate, "u_dt", cast(float) dt);
+	compute(shader_simulate, particles_alive, 1, 1);
+	particles_alive = get(counter_alive);
+}
+draw :: (using particle_system : Particle_System, camera : Camera, screen_size : Vector2) {
+	use(shader_pass);
+		bind(buffer_particles_sim, 0);
+		bind_vbo_as_storage(mesh_particles, 1);
+		bind(counter_alive, 0);
+	compute(shader_pass, particles_alive, 1, 1);
 
-	vec3 hash33(vec3 p3) {
-		p3 = fract(p3 * vec3(.1031, .1030, .0973));
-		p3 += dot(p3, p3.yxz + 33.33);
-		return fract((p3.xxy + p3.yxx) * p3.zyx);
-	}
-	uniform uint CHUNK_SIZE;
-	Block at(ivec3 p) {
-		if(p.x < 0 || p.y < 0 || p.z < 0 || p.x >= CHUNK_SIZE || p.y >= CHUNK_SIZE || p.z >= CHUNK_SIZE) {
-			return Block(0);
-		}
-		return blocks[CHUNK_SIZE * CHUNK_SIZE * p.z + CHUNK_SIZE * p.y + p.x];
-	}
-	vec3 get_color(ivec3 p) {
-		vec3 col = hash33(vec3(p)) * .4 + .6;
-		return col / max(col.x, max(col.y, col.z));
-	}
-	void make_face(ivec3 p0, ivec3 dp) {
-		uint id = atomicCounterIncrement(u_face_counter);
-		faces[id] = Face(
-			to_Vec3(vec3(p0)),
-			to_Vec3(vec3(dp)),
-			to_Vec3(get_color(p0)),
-			(p0.x + p0.y + p0.z) % 2
-		);
-	}
-	void try_make_face(ivec3 p0, ivec3 dp) {
-		Block b0 = at(p0), b1 = at(p0 + dp);
-		if(b0.type != 0 && b1.type == 0) {
-			make_face(p0, dp);
-		}
-	}
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+	use(shader_draw);
+		set(*shader_draw, "u_transform", get_transform(*camera, screen_size));
+	draw(mesh_particles, GL_POINTS, particles_alive);
+}
+Emitter :: struct {
+	shader_emit : Shader;
+}
+init :: (using emitter : *Emitter)  {
+	shader_emit = make_shader_c(SRC_PARTICLE_EMIT_COMP, 8, 1, 1);
+}
+deinit :: (using emitter : *Emitter) {
+	clear_shader(*shader_emit);
+}
+spawn :: (using particle_system : *Particle_System, using emitter : Emitter, amount : u32, color : Vector3, center : Vector3) {
+	use(shader_emit);
+		bind(buffer_particles_sim, 0);
+		bind(counter_alive, 0);
+		set(*shader_emit, "u_max_particles", max_particles);
+		set(*shader_emit, "u_emit_counter", amount);
+		set(*shader_emit, "u_color", color);
+		set(*shader_emit, "u_center", center);
+	compute(shader_emit, amount, 1, 1);
+	particles_alive = get(counter_alive);
+}
 
-	void main() {
-		ivec3 p0 = ivec3(gl_GlobalInvocationID.xyz);
+#import "Random";
 
-		if(p0.x < CHUNK_SIZE && p0.y < CHUNK_SIZE && p0.z < CHUNK_SIZE) {
-			try_make_face(p0, ivec3( 1,  0,  0));
-			try_make_face(p0, ivec3(-1,  0,  0));
-			try_make_face(p0, ivec3( 0,  1,  0));
-			try_make_face(p0, ivec3( 0, -1,  0));
-			try_make_face(p0, ivec3( 0,  0,  1));
-			try_make_face(p0, ivec3( 0,  0, -1));
-		}
-	}
-GLSL
-
-SRC_BLOCK_VERT :: #string GLSL
+SRC_PARTICLE_DRAW_VERT :: #string GLSL
 	#version 430 core
 
 	layout (location = 0) in vec3 a_pos;
-	layout (location = 1) in vec3 a_norm;
+	layout (location = 1) in float a_size;
 	layout (location = 2) in vec3 a_col;
-	layout (location = 3) in int a_extra;
 
-	uniform mat4 u_transform_p;
-	uniform mat4 u_transform_mv;
+	uniform mat4 u_transform;
 
 	out struct Vert_Out {
-		vec3 norm;
+		float size;
 		vec3 col;
 	} vert_out;
-	
+
 	void main() {
-		gl_Position = vec4(a_pos, 1);
-		vert_out.norm = a_norm;
-		vert_out.col = a_col;
+		gl_Position = u_transform * vec4(a_pos, 1.);
+		vert_out.col = a_pos;
+		vert_out.size = a_size;
+		vert_out.col = /*vec3(0, 1, 0);*/a_col;
 	}
 GLSL
-SRC_BLOCK_GEOM :: #string GLSL
+SRC_PARTICLE_DRAW_GEOM :: #string GLSL
 	#version 430 core
 
 	layout (points) in;
 	layout (triangle_strip, max_vertices = 4) out;
 
-	uniform mat4 u_transform_p;
-	uniform mat4 u_transform_mv;
+	// TODO
+	// uniform vec2 u_screen_size;
+	// uniform float u_particle_size = 60;
 
 	const vec2 u_screen_size = vec2(1200, 800);
 	const float u_particle_size = 60;
 
 	in struct Vert_Out {
-		vec3 norm;
+		float size;
 		vec3 col;
 	} vert_out[];
 
@@ -237,141 +181,307 @@ SRC_BLOCK_GEOM :: #string GLSL
 		vec2 uv;
 	} geom_out;
 
-	void add_point(vec4 p0, vec3 dp, vec2 uv) {
-		gl_Position = u_transform_p * u_transform_mv * (p0 + vec4(dp * .5, 0)); 
-		geom_out.uv = uv;
+	void add_point(vec4 p0, vec2 dxy, vec4 M) {
+		gl_Position = p0 + vec4(dxy, 0, 0) * M; 
+		geom_out.uv = dxy;
 		EmitVertex();
 	}
 
 	void main() {
-		vec3 n0 = vert_out[0].norm;
-		vec4 p0 = gl_in[0].gl_Position + vec4(n0 * .5, 0);
-		vec3 n1 = n0.yzx;
-		vec3 n2 = -cross(n0, n1);
+		vec4 M = vert_out[0].size * vec4(u_particle_size / (vec2(u_screen_size.x / u_screen_size.y, 1) * 1500), 1., 1.), p0 = gl_in[0].gl_Position;
+	#ifdef SCREEN_SCALE
+		p0.xyz /= p0.w; p0.w = 1;
+	#else
+		M.xyz *= 4;
+	#endif
 
 		geom_out.col = vert_out[0].col;
 
-		add_point(p0,   n1 + n2, vec2(1, 1));
-		add_point(p0,   n1 - n2, vec2(1, 0));
-		add_point(p0, - n1 + n2, vec2(0, 1));
-		add_point(p0, - n1 - n2, vec2(0, 0));
+		if(vert_out[0].size > 0) {
+			add_point(p0, vec2(-1, -1), M);
+			add_point(p0, vec2( 1, -1), M);
+			add_point(p0, vec2(-1,  1), M);
+			add_point(p0, vec2( 1,  1), M);
 
-		EndPrimitive();
+			EndPrimitive();
+		}
 	}
 GLSL
-SRC_BLOCK_FRAG :: #string GLSL
+SRC_PARTICLE_DRAW_FRAG :: #string GLSL
 	#version 430 core
+
+	// uniform sampler2D u_tex;
+	// uniform vec2 u_screen_size;
+	// uniform float u_time;
+
+	const vec2 u_screen_size = vec2(1200, 800);
 
 	in struct Geom_Out {
 		vec3 col;
 		vec2 uv;
 	} geom_out;
 
-	// in struct Vert_Out {
-	// 	vec3 norm;
-	// 	vec3 col;
-	// } vert_out;
+	out vec4 color;  
 
-	out vec4 o_color;
+	// float z_near = .02, z_far  = 130;
+
+	// float linearize_depth(float depth)  {
+	// 	float z = depth * 2 - 1; 
+	// 	return (2 * z_near * z_far) / (z_far + z_near - z * (z_far - z_near));	
+	// }
+
 	void main() {
-		// o_color = vec4(geom_out.uv, 0, 1);
-		o_color = vec4(geom_out.col, 1);
-		// o_color = vec4(1, 1, 0, 1);
-		// o_color = vec4(vert_out.col, 1);
+		// float d0 = linearize_depth(texture(u_tex, (gl_FragCoord.xy) / u_screen_size).r);
+		// float d1 = linearize_depth(gl_FragCoord.z);
+
+		float depth_factor = 1;//clamp((d0 - d1) / 0.01, 0, 1);
+		float l = length(geom_out.uv);
+		float dist_factor = pow(clamp(1 - l, 0, 1), 2); //pow(max(1 - length(a_uv), 0), 2);
+		float time_factor = 1;// sin((u_time + 10) * (1 + freq) * 2) * .5 + .5;
+
+		float brightness = depth_factor * dist_factor * time_factor;
+
+		color = vec4(geom_out.col, brightness);
 	}
 GLSL
 
-SRC_CHUNK_ITERATE_COMP :: #string GLSL
+SRC_PARTICLE_INIT_COMP :: #string GLSL
 	#version 430 core
+	// layout(local_size_x = 8, local_size_y = 1, local_size_z = 1) in;
 
-	struct Block {
-		uint type;
+	struct Vec3 { float x, y, z; };
+	Vec3 to_Vec3(vec3 v) { return Vec3(v.x, v.y, v.z); }
+	vec3 from_Vec3(Vec3 v) { return vec3(v.x, v.y, v.z); }
+
+	struct Particle_Sim {
+		Vec3 pos, vel;
+		float timer;
+		float size;
+		Vec3 color;
+		uint next;
 	};
 
-	layout(std430, binding = 0) buffer u_virtual_chunk_in {
-		Block blocks_in[];
+	layout(std430, binding = 0) buffer u_sim_particles {
+		Particle_Sim sim_particles[];
 	};
-	layout(std430, binding = 1) buffer u_virtual_chunk_out {
-		Block blocks_out[];
-	};
+	layout (binding = 0) uniform atomic_uint u_alive_counter;
 
-	uniform uint CHUNK_SIZE;
-	void set_block(ivec3 p, Block block) {
-		if(p.x < 0 || p.y < 0 || p.z < 0 || p.x >= CHUNK_SIZE || p.y >= CHUNK_SIZE || p.z >= CHUNK_SIZE) {
-			return;
-		}
-		blocks_out[CHUNK_SIZE * CHUNK_SIZE * p.z + CHUNK_SIZE * p.y + p.x] = block;
+	vec2 hash22(vec2 p) {
+		p = p * mat2(127.1, 311.7, 269.5 ,183.3);
+		p = -1.0 + 2.0 * fract(sin(p) * 43758.5453123);
+		return sin(p * 6.283);
 	}
-	Block get_block(ivec3 p) {
-		if(p.x < 0 || p.y < 0 || p.z < 0 || p.x >= CHUNK_SIZE || p.y >= CHUNK_SIZE || p.z >= CHUNK_SIZE) {
-			return Block(0);
-		}
-		return blocks_in[CHUNK_SIZE * CHUNK_SIZE * p.z + CHUNK_SIZE * p.y + p.x];
-	}
+
 	void main() {
-		ivec3 p0 = ivec3(gl_GlobalInvocationID.xyz);
+		ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
+		uint alive_current = atomicCounter(u_alive_counter);
 
-		if(p0.x < CHUNK_SIZE && p0.y < CHUNK_SIZE && p0.z < CHUNK_SIZE) {
-			uint S = 0;
-			bool alive;
+		if(pixel_coords.x < alive_current) {
+			float x = float(pixel_coords.x);
+			vec3 pos = vec3(hash22(vec2(x, 0)), hash22(vec2(x, 1)).x);
+			vec3 vel = vec3(hash22(vec2(x, 2)), hash22(vec2(x, 3)).x);
+			float timer = 5 * (2 + hash22(vec2(x, 4)).x);
+			float size = .5 * (1.5 + hash22(vec2(x, 5)).x);
+			vec3 col = vec3(hash22(vec2(x, 6)), hash22(vec2(x, 7)).x);
+			col += 1.2; col /= max(max(col.x, col.y), col.z);
 
-			ivec3 d; 
-			for(d.x = -1; d.x <= 1; d.x++) {
-				for(d.y = -1; d.y <= 1; d.y++) {
-					for(d.z = -1; d.z <= 1; d.z++) {
-						uint type = get_block(p0 + d).type;
-						if(d != ivec3(0)) {
-							S += type;
-						} else {
-							alive = bool(type);
-						}
-					}
+			sim_particles[pixel_coords.x] = Particle_Sim(to_Vec3(pos), to_Vec3(vel), timer, size, to_Vec3(col), 0xFFFFFFFF);			
+		}
+	}
+GLSL
+SRC_PARTICLE_TO_VBO_COMP :: #string GLSL
+	#version 430 core
+	// layout(local_size_x = 8, local_size_y = 1, local_size_z = 1) in;
+
+	struct Vec3 { float x, y, z; };
+	Vec3 to_Vec3(vec3 v) { return Vec3(v.x, v.y, v.z); }
+	vec3 from_Vec3(Vec3 v) { return vec3(v.x, v.y, v.z); }
+
+	struct Particle_Sim {
+		Vec3 pos, vel;
+		float timer;
+		float size;
+		Vec3 color;
+		uint next;
+	};
+	struct Particle {
+		Vec3 pos;
+		float size;
+		Vec3 color;
+	};
+
+	layout(std430, binding = 0) buffer u_sim_particles {
+		Particle_Sim particles_sim[];
+	};
+	layout(std430, binding = 1) buffer u_vbo_particles {
+		Particle particles[];
+	};
+	layout (binding = 0) uniform atomic_uint u_alive_counter;
+
+	vec2 hash22(vec2 p) {
+		p = p * mat2(127.1, 311.7, 269.5 ,183.3);
+		p = -1.0 + 2.0 * fract(sin(p) * 43758.5453123);
+		return sin(p * 6.283);
+	}
+
+	void main() {
+		ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
+		uint alive_current = atomicCounter(u_alive_counter);
+
+		if(pixel_coords.x < alive_current) {
+			Particle_Sim P = particles_sim[pixel_coords.x];
+
+			float scale = P.timer > 0 ? 2 * (1 - 1 / (P.timer / 10 + 1)) : -.5;
+
+			particles[pixel_coords.x] = Particle(P.pos, P.size * scale, P.color);			
+		}
+
+		// particles[pixel_coords.x] = Particle(Vec3(0, 0, 0), 1, Vec3(1, 0, 0));
+	}
+GLSL
+SRC_PARTICLE_SIMULATE_COMP :: #string GLSL
+	#version 430 core
+	// layout(local_size_x = 8, local_size_y = 1, local_size_z = 1) in;
+
+	struct Vec3 { float x, y, z; };
+	Vec3 to_Vec3(vec3 v) { return Vec3(v.x, v.y, v.z); }
+	vec3 from_Vec3(Vec3 v) { return vec3(v.x, v.y, v.z); }
+
+	struct Particle_Sim {
+		Vec3 pos, vel;
+		float timer;
+		float size;
+		Vec3 color;
+		uint next;
+	};
+
+	layout(std430, binding = 0) buffer u_sim_particles {
+		Particle_Sim sim_particles[];
+	};
+	layout (binding = 0) uniform atomic_uint u_alive_counter;
+	uniform float u_dt;
+
+	vec2 hash22(vec2 p) {
+		p = p * mat2(127.1, 311.7, 269.5 ,183.3);
+		p = -1.0 + 2.0 * fract(sin(p) * 43758.5453123);
+		return sin(p * 6.283);
+	}
+
+	void main() {
+		ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
+
+		uint alive_current = atomicCounter(u_alive_counter);
+		memoryBarrier();
+
+		if(pixel_coords.x < alive_current) {
+			float x = float(pixel_coords.x);
+			Particle_Sim P = sim_particles[pixel_coords.x];
+			vec3 pos = from_Vec3(P.pos);
+			vec3 vel = from_Vec3(P.vel);
+
+			if(P.timer >= 0) {
+				float alpha = 1, beta = 2, gamma = 1.;
+				float r = length(pos);
+
+				vec3 force_friction = -vel * beta;
+				vec3 force_gravity = vec3(0, -3, 0);
+				vec3 force = force_friction + force_gravity;
+				// vec3 force = pos * (alpha / (r * r * r + .01) - gamma) - vel * beta;
+
+				pos += vel * u_dt;
+				vel += force * u_dt;
+
+				P.pos = to_Vec3(pos);
+				P.vel = to_Vec3(vel);
+
+				P.timer -= u_dt;
+				if(P.timer < 0) {
+					P.next = atomicCounterDecrement(u_alive_counter);
 				}
+				sim_particles[pixel_coords.x] = P;
 			}
-
-			set_block(p0, Block(uint(
-				alive ? 
-					(S == 4 || S == 5) : 
-					(S == 5)
-			)));
 		}
-	}	
+		memoryBarrier();
+		alive_current = atomicCounter(u_alive_counter);
+
+		if(pixel_coords.x < alive_current) {
+			uint repl = pixel_coords.x;
+			int MAX_ITERATIONS = 100;
+			for(int i = 0; i < MAX_ITERATIONS; i++) {
+				uint next = sim_particles[repl].next;
+				if(next == 0xFFFFFFFF) break;
+				repl = next;
+			}
+			sim_particles[pixel_coords.x] = sim_particles[repl];
+		}
+	}
 GLSL
-
-SRC_CHUNK_FILL_COMP :: #string GLSL
+SRC_PARTICLE_EMIT_COMP :: #string GLSL
 	#version 430 core
+	// layout(local_size_x = 8, local_size_y = 1, local_size_z = 1) in;
 
-	struct Block {
-		uint type;
+	struct Vec3 { float x, y, z; };
+	Vec3 to_Vec3(vec3 v) { return Vec3(v.x, v.y, v.z); }
+	vec3 from_Vec3(Vec3 v) { return vec3(v.x, v.y, v.z); }
+
+	struct Particle_Sim {
+		Vec3 pos, vel;
+		float timer;
+		float size;
+		Vec3 color;
+		uint next;
 	};
 
-	layout(std430, binding = 0) buffer u_virtual_chunk {
-		Block blocks[];
+	layout(std430, binding = 0) buffer u_sim_particles {
+		Particle_Sim sim_particles[];
 	};
+	layout (binding = 0) uniform atomic_uint u_alive_counter;
+	uniform uint u_max_particles;
 
-	uniform uint CHUNK_SIZE;
-	void set_block(ivec3 p, Block block) {
-		if(p.x < 0 || p.y < 0 || p.z < 0 || p.x >= CHUNK_SIZE || p.y >= CHUNK_SIZE || p.z >= CHUNK_SIZE) {
-			return;
-		}
-		blocks[CHUNK_SIZE * CHUNK_SIZE * p.z + CHUNK_SIZE * p.y + p.x] = block;
+	uniform uint u_emit_counter;
+	uniform vec3 u_color;
+	uniform vec3 u_center;
+
+	vec2 hash22(vec2 p) {
+		p = p * mat2(127.1, 311.7, 269.5 ,183.3);
+		p = -1.0 + 2.0 * fract(sin(p) * 43758.5453123);
+		return sin(p * 6.283);
 	}
-	vec3 hash33(vec3 p3) {
-		p3 = fract(p3 * vec3(.1031, .1030, .0973));
-		p3 += dot(p3, p3.yxz + 33.33);
-		return fract((p3.xxy + p3.yxx) * p3.zyx);
+	const float PI = 3.14159265;
+	vec3 hash32(vec2 p) {
+		vec3 p3 = fract(vec3(p.xyx) * vec3(.1031, .1030, .0973));
+		p3 += dot(p3, p3.yxz+33.33);
+		return fract((p3.xxy+p3.yzz)*p3.zyx);
 	}
 
+
+	Particle_Sim gen_particle(uint i) {
+		float x = float(i);
+		vec3 center = vec3(0, 0, 0);
+
+		vec3 pos = u_center;
+		vec3 phi_y_r = hash32(vec2(x, 0));
+		phi_y_r = vec3(phi_y_r.x * 2 * PI, phi_y_r.y * 2 - 1, (phi_y_r.z * .3 + 1) * 4);
+
+		vec3 vel = phi_y_r.z * vec3(vec2(sin(phi_y_r.x), cos(phi_y_r.x)) * sqrt(1 - phi_y_r.y * phi_y_r.y),  phi_y_r.y);
+
+		float timer = 2 + .2 * hash22(vec2(x, 1)).x;
+		float size = 3 * (1.5 + hash22(vec2(x, 2)).x);
+
+		vec3 col;
+		#ifdef JUSTRED
+			col = vec3(1, .2, .1);
+		#else
+			col = clamp(u_color + hash32(vec2(x, 3)) * .2, vec3(0), vec3(1));
+		#endif
+
+		return Particle_Sim(to_Vec3(pos), to_Vec3(vel), timer, size, to_Vec3(col), 0xFFFFFFFF);
+	}
 
 	void main() {
-		ivec3 p0 = ivec3(gl_GlobalInvocationID.xyz);
+		ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
 
-		if(p0.x < CHUNK_SIZE && p0.y < CHUNK_SIZE && p0.z < CHUNK_SIZE) {
-			float dh = hash33(vec3(p0 + 2)).x;
-			vec3 r = (vec3(p0) / (CHUNK_SIZE - 1)) * 2 - 1;
-			float h = r.y + .5 + dh * .1;
-
-			set_block(p0, h > .0 ? Block(0) : Block(1));
-		}
+		uint id = atomicCounterIncrement(u_alive_counter);
+		sim_particles[id] = gen_particle(id);
 	}
 GLSL

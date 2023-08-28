@@ -8,6 +8,7 @@
 #load "utils.jai";
 #load "framebuffer.jai";
 #load "winutils.jai";
+#load "particle_system.jai";
 // #load "ivec2.jai";
 // #scope_module
 

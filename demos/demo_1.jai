@@ -33,6 +33,8 @@ demo_1 :: () {
 
 		camera_rail(*camera, xx current_time);
 
+		mat_v, mat_p := get_transform_v_p(*camera, .{1200, 800});
+
 		{
 			bind(frame_buffer); defer simp.set_render_target(window);
 
@@ -42,8 +44,6 @@ demo_1 :: () {
 			glDepthMask(GL_TRUE);	
 			glEnable(GL_DEPTH_TEST);
 
-			mat_v, mat_p := get_transform_v_p(*camera, .{1200, 800});
-
 			use(shader_scene);
 				set(*shader_scene, "u_transform_mv", mat_v);
 				set(*shader_scene, "u_transform_p", mat_p);
@@ -52,7 +52,6 @@ demo_1 :: () {
 
 		simp.clear_render_target(.1, .0, .2, 1);
 		glClear(GL_DEPTH_BUFFER_BIT);
-		
 		use(shader_screen);
 			bind(frame_buffer.tex_color, 0);
 			bind(frame_buffer.tex_depth, 1);

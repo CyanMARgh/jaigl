@@ -1,6 +1,6 @@
 IMPORT_EXTRA_PATH :: "/home/cyanmargh/projects/jai/";
 
-MAIN_DEMO :u8: 10; // set MAIN_DEMO = DEMO_COUNT to build all demos
+MAIN_DEMO :u8: 11; // set MAIN_DEMO = DEMO_COUNT to build all demos
 EXE_PREFIX :: "demo_"; 
 EXECS_DIR :: "execs";
 
@@ -27,8 +27,8 @@ demos_data :: Demo_Data.[
 	.{"watercolor", .[]},
 	.{"magic eye renderer", .["6th_platonic_solid.obj"]},
 	.{"filters", .["input_texture.png"]},
-	// .{"chunk map", .[]},
-	// .{"skin mask", .["skin.png", "uv64.png"]}
+	.{"OIT v2", .["stanford_bunny.obj"]},
+	.{"outline (world space)", .["stanford_bunny.obj"]}
 ];
 DEMO_COUNT :: demos_data.count;
 

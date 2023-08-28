@@ -36,14 +36,13 @@ __dyn :: (elems : ..$T, allocator := Allocator.{}) -> [..]T {
 }
 
 
-
-check_gl_error :: (mark :Any= "-") {
+check_gl_error :: (loc := #caller_location) {
 	has_errors := false;
 	while true {
 		err := glGetError();
 		if !err break;
 		has_errors = true;
-		print("error(%). code = %\n", mark, err);
+		print("error at line %, file %. code = %\n", loc.line_number, loc.fully_pathed_filename, err);
 	}
-	// if !has_errors print("ok(%)\n", mark);
 }
+
