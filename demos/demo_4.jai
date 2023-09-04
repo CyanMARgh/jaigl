@@ -2,6 +2,8 @@ demo_4 :: () {
 	width, height : s32 = 1920, 1080; 
 	PARTICLES_MAX :u32: 20000;
 
+	RENDER_VIDEO :: true;
+
 	window := create_window(width, height, "advanced particles"); defer close_window(window);
 	saved_window_info : Saved_Window_Info;	
 	ok:, width, height = toggle_fullscreen(window, true, *saved_window_info);
@@ -22,23 +24,37 @@ demo_4 :: () {
 		);
 	}
 
-	for i: 0..0 spawn();
+	spawn();
+
+	#if RENDER_VIDEO {
+		ffmpeg := ffmpeg_start_rendering(width, height, filename = "demo_4.mp4", path = "screenshots", bitrate = 5000, length_seconds = 20);
+		defer ffmpeg_end_rendering(*ffmpeg);		
+	} else {
+		time := current_time_monotonic();
+		time0 := time;		
+	}
+	time_from_previous := 0.;
 
 	//TODO macro for default loop
-	time := current_time_monotonic();
-	time_last_spawn := time;
 	while !win_state.should_exit {
 		// input
-		new_time := current_time_monotonic();
-		dt := to_float64_seconds(new_time - time); time = new_time;
-		time_from_previous := to_float64_seconds(new_time - time_last_spawn);
+		#if RENDER_VIDEO {
+			dt := ffmpeg.dt;
+			current_time := ffmpeg.time;			
+		} else {
+			new_time := current_time_monotonic();
+			dt := to_float64_seconds(new_time - time); time = new_time;
+			current_time := to_float64_seconds(new_time - time0);			
+		}
+		time_from_previous += cast(float)dt;
+
 		Input.update_window_events();
 		move_camera(*camera, xx dt, win_state.pressed_keys);
 		for Input.events_this_frame handle_event(*win_state, it);
 
 		//spawn
 		if time_from_previous > .5 {
-			time_last_spawn = new_time;
+			time_from_previous -= .5;
 			spawn();
 		}
 
@@ -51,9 +67,15 @@ demo_4 :: () {
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE);
 			draw(particle_system, get_transform(camera, .{xx width, xx height}), height / cast(float)width);
 
+		#if RENDER_VIDEO {
+			ffmpeg_add_screenshot(*ffmpeg);
+			if ffmpeg.ended break;
+		} else {
+			sleep_milliseconds(10);	
+		}
+
 		simp.swap_buffers(window);
 		reset_temporary_storage();
-		sleep_milliseconds(10);
 	}
 }
 

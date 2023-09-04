@@ -9,6 +9,7 @@
 #load "framebuffer.jai";
 #load "winutils.jai";
 #load "particle_system.jai";
+#load "video_builder.jai";
 // #load "ivec2.jai";
 // #scope_module
 

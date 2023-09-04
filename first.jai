@@ -1,10 +1,10 @@
 IMPORT_EXTRA_PATH :: "/home/cyanmargh/projects/jai/";
 
-MAIN_DEMO :u8: 11; // set MAIN_DEMO = DEMO_COUNT to build all demos
+MAIN_DEMO :u8: 4; // set MAIN_DEMO = DEMO_COUNT to build all demos
 EXE_PREFIX :: "demo_"; 
 EXECS_DIR :: "execs";
 
-GEN_PACKS :: true;
+GEN_PACKS :: false;
 
 Demo_Data :: struct {
 	name : string;
@@ -22,13 +22,14 @@ demos_data :: Demo_Data.[
 	.{"pendulum fractal", .[]},	
 	.{"order independent transparency", .["cow.obj"]},
 	.{"advanced particles", .[]},
-	.{"voxels (wip)", .[]},
+	.{"nothing", .[]},
 	.{"integer in vbo (test)", .[]},
 	.{"watercolor", .[]},
 	.{"magic eye renderer", .["6th_platonic_solid.obj"]},
 	.{"filters", .["input_texture.png"]},
 	.{"OIT v2", .["stanford_bunny.obj"]},
-	.{"outline (world space)", .["stanford_bunny.obj"]}
+	.{"outline (world space)", .["stanford_bunny.obj"]},
+	.{"gltf loading", .["helmet"]}
 ];
 DEMO_COUNT :: demos_data.count;
 

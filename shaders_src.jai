@@ -247,7 +247,8 @@ SRC_PENDULUM_ITERATE_COMP :: #string GLSL
 		float M = 6;
 
 		float x = float(pixel_coords.x) / float(dims.x);
-		float w = exp(mix(log(995), log(1000), x));
+		// float w = exp(mix(log(995), log(1000), x));
+		float w = 3;
 
 		model_params = Model_Params(.2, .2, .1, w, 1);	
 

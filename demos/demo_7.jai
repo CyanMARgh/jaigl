@@ -2,6 +2,8 @@ demo_7 :: () {
 	width, height : s32 = 1920, 1080;
 	max_nodes : u32 = xx(width * height * 20);
 
+	RENDER_VIDEO :: false;
+
 	mesh_particles := concat(
 		gen_tree(2, .{0,  1}),
 		// gen_tree(3, .{-2.5,  2}),
@@ -38,13 +40,24 @@ demo_7 :: () {
 	shader_from_nodes := make_shader_vf(SRC_SCREEN_VERT, SRC_OIT_FROM_NODES_FRAG); defer clear_shader(*shader_from_nodes);
 	shader_reset := make_shader_c(SRC_OIT_CLEAR_COMP, 8, 4, 1); defer clear_shader(*shader_reset);
 
-	time := current_time_monotonic();
-	time0 := time;
+	#if RENDER_VIDEO {
+		ffmpeg := ffmpeg_start_rendering(width, height, filename = "demo_7_vb2500.mp4", path = "screenshots", bitrate = 2500, length_seconds = 5);
+		defer ffmpeg_end_rendering(*ffmpeg);				
+	} else {
+		time := current_time_monotonic();
+		time0 := time;		
+	}
+
 	while !win_state.should_exit {
 		// sim & input
-		new_time := current_time_monotonic();
-		dt := to_float64_seconds(new_time - time); time = new_time;
-		current_time := to_float64_seconds(new_time - time0);
+		#if RENDER_VIDEO {
+			dt := ffmpeg.dt;
+			current_time := ffmpeg.time;
+		} else {
+			new_time := current_time_monotonic();
+			dt := to_float64_seconds(new_time - time); time = new_time;
+			current_time := to_float64_seconds(new_time - time0);			
+		}
 		Input.update_window_events();
 		camera_rail(*camera, xx current_time);
 
@@ -89,8 +102,13 @@ demo_7 :: () {
 		draw(mesh_screen);
 
 		simp.swap_buffers(window);
+		#if RENDER_VIDEO {
+			ffmpeg_add_screenshot(*ffmpeg);
+			if ffmpeg.ended break;
+		} else {
+			sleep_milliseconds(10);	
+		}
 		reset_temporary_storage();
-		sleep_milliseconds(10);
 	}
 }
 

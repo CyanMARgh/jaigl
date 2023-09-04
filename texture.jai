@@ -22,7 +22,7 @@ make_texture :: (width : u32, height : u32, format : GLenum, params : []GLenum, 
 
 	return result;
 }
-
+//TODO                              remove
 load_texture :: (path : string, storage_type := GL_RGBA32F, interpolation :u32= GL_LINEAR) -> Texture {
 	cstr_path := to_c_string(path); defer free(cstr_path);
 	width, height, dim : s32;
@@ -46,8 +46,8 @@ load_texture :: (path : string, storage_type := GL_RGBA32F, interpolation :u32= 
 	}
 
 	return make_texture(xx width, xx height, GL_RGBA32F, .[
-		GL_TEXTURE_WRAP_S, xx ifx src_channels == GL_RGBA then GL_CLAMP_TO_EDGE else GL_REPEAT,
-		GL_TEXTURE_WRAP_T, xx ifx src_channels == GL_RGBA then GL_CLAMP_TO_EDGE else GL_REPEAT,
+		GL_TEXTURE_WRAP_S, xx GL_REPEAT,
+		GL_TEXTURE_WRAP_T, xx GL_REPEAT,
 		GL_TEXTURE_MIN_FILTER, interpolation,
 		GL_TEXTURE_MAG_FILTER, interpolation
 	], data, src_channels, GL_UNSIGNED_BYTE, true);

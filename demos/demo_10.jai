@@ -233,11 +233,15 @@ SRC_FRAG_GLASS :: #string GLSL
 			}
 		}
 
-		float brightness = dot(normalize(vert_out.norm), vec3(1, 0, 0)) * .5 + .5;
+		float brightness = min(1, max(dot(normalize(vert_out.norm), vec3(1, 0, 0)), 0) + .3);
+
+		ivec3 ipos = ivec3(floor(vert_out.pos * 2));
 		vec4 color_this = vec4(
-			vec3(brightness),
-			.8
+			mod(ipos.x + ipos.y + ipos.z, 2) == 0 ? vec3(1, .5, .5) : vec3(.5, 1, .5),
+			.6
 		);
+		color_this.xyz *= brightness;
+
 		// vec4 color_this = vec4(
 		// 	vec3(1),
 		// 	.5
