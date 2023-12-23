@@ -10,6 +10,7 @@ rect_src :: Mesh_Raw.{
 	indices = .[0, 1, 2, 0, 2, 3]
 };
 
+
 Point :: struct {
 	pos : Vector3;
 }
@@ -46,9 +47,11 @@ Face :: struct {
 	type := Ftype.INVALID;
 }
 Mesh_Raw_SOA :: struct {
-	points  : []Vector3;
-	uvs     : []Vector2;
-	normals : []Vector3;
+	points   : []Vector3;
+	uvs      : []Vector2;
+	normals  : []Vector3;
+	tangents : []Vector3;
+	binormals: []Vector3;
 	union {
 		faces : []Face;
 		indices : []u32;
@@ -93,6 +96,8 @@ clear_mesh_raw :: (using mesh : Mesh_Raw_SOA) {
 	array_free(points);
 	array_free(uvs);
 	array_free(normals);
+	array_free(tangents);
+	array_free(binormals);
 	if gl_ready {
 		array_free(indices);
 	} else {

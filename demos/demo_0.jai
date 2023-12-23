@@ -17,7 +17,7 @@ demo_0 :: () {
 	mesh := make_mesh_soa(mesh_raw_soa); defer clear_mesh(mesh);
 	shader := make_shader_vf(SRC_VERT, SRC_DRAW_NORMALS_FRAG); defer clear_shader(*shader);
 
-	time := current_time_monotonic();
+	time := current_time_monotonic(); ..
 	while !win_state.should_exit {
 		new_time := current_time_monotonic();
 		dt := to_float64_seconds(new_time - time); time = new_time;

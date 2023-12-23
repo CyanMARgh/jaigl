@@ -7,7 +7,7 @@ demo_10 :: () {
 	prepare(*mesh_raw_soa);
 	defer clear_mesh_raw(mesh_raw_soa);
 
-	window := create_window(width, height, "filters"); defer close_window(window);
+	window := create_window(width, height, "depth peeling"); defer close_window(window);
 	camera : Camera;
 
 	__active_window = window;

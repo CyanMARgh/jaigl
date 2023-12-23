@@ -60,10 +60,13 @@ make_mesh_soa :: (mesh_raw_soa : Mesh_Raw_SOA, draw_mode := GL_STATIC_DRAW) -> M
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh_raw_soa.indices.count * size_of(u32), mesh_raw_soa.indices.data, xx draw_mode);
 	}
 
-	s_points := mesh_raw_soa.points.count * size_of(Vector3);
-	s_uvs    := mesh_raw_soa.uvs.count * size_of(Vector2);
-	s_normals:= mesh_raw_soa.normals.count * size_of(Vector3);
-	vbo_size := s_points + s_uvs + s_normals;
+	s_points   := mesh_raw_soa.points.count * size_of(Vector3);
+	s_uvs      := mesh_raw_soa.uvs.count * size_of(Vector2);
+	s_normals  := mesh_raw_soa.normals.count * size_of(Vector3);
+	s_tangents := mesh_raw_soa.tangents.count * size_of(Vector3);
+	s_binormals:= mesh_raw_soa.binormals.count * size_of(Vector3);
+
+	vbo_size := s_points + s_uvs + s_normals + s_tangents + s_binormals;
 	glBufferData(GL_ARRAY_BUFFER, vbo_size, null, xx draw_mode);
 
 	glBufferSubData(GL_ARRAY_BUFFER, 0, s_points, mesh_raw_soa.points.data);
@@ -80,6 +83,17 @@ make_mesh_soa :: (mesh_raw_soa : Mesh_Raw_SOA, draw_mode := GL_STATIC_DRAW) -> M
 	//                    i
 	glVertexAttribPointer(2, xx (size_of(Vector3) / size_of(float)), GL_FLOAT, GL_FALSE, 0, cast(*void) s_points + s_uvs);
 	glEnableVertexAttribArray(2);
+	if mesh_raw_soa.tangents {
+		assert(!!mesh_raw_soa.binormals);
+
+		glBufferSubData(GL_ARRAY_BUFFER, s_points + s_uvs + s_normals, s_tangents, mesh_raw_soa.tangents.data);
+		glVertexAttribPointer(3, xx (size_of(Vector3) / size_of(float)), GL_FLOAT, GL_FALSE, 0, cast(*void) s_points + s_uvs + s_normals);
+		glEnableVertexAttribArray(3);		
+
+		glBufferSubData(GL_ARRAY_BUFFER, s_points + s_uvs + s_normals + s_tangents, s_binormals, mesh_raw_soa.binormals.data);
+		glVertexAttribPointer(4, xx (size_of(Vector3) / size_of(float)), GL_FLOAT, GL_FALSE, 0, cast(*void) s_points + s_uvs + s_normals + s_tangents);
+		glEnableVertexAttribArray(4);		
+	}
 
 	glBindVertexArray(0);
 	return mesh;
@@ -141,4 +155,21 @@ draw :: (using mesh_uv : Mesh, mode := GL_TRIANGLES, actual_size :u32= 0xFFFFFFF
 bind_vbo_as_storage :: (mesh : Mesh, offset : u32 = 0) {
 	glBindVertexArray(mesh.vao);
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, offset, mesh.vbo);
+}
+
+Empty_Mesh :: struct {
+	vao : u32;
+}
+get_empty_mesh :: () -> Empty_Mesh {
+	vao : u32;
+	glGenVertexArrays(1, *vao);
+	return .{vao};
+}
+clear :: (mesh : *Empty_Mesh) {
+	glDeleteVertexArrays(1, *mesh.vao);
+}
+draw :: (mesh : Empty_Mesh, vertices := 6) {
+	glBindVertexArray(mesh.vao);
+		glDrawArrays(GL_TRIANGLES, 0, xx vertices);
+	glBindVertexArray(0);
 }

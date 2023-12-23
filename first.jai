@@ -1,6 +1,6 @@
-IMPORT_EXTRA_PATH :: "/home/cyanmargh/projects/jai/";
+IMPORT_EXTRA_PATH :: "..";
 
-MAIN_DEMO :u8: 4; // set MAIN_DEMO = DEMO_COUNT to build all demos
+MAIN_DEMO :u8: 11; // set MAIN_DEMO = DEMO_COUNT to build all demos
 EXE_PREFIX :: "demo_"; 
 EXECS_DIR :: "execs";
 
@@ -22,7 +22,7 @@ demos_data :: Demo_Data.[
 	.{"pendulum fractal", .[]},	
 	.{"order independent transparency", .["cow.obj"]},
 	.{"advanced particles", .[]},
-	.{"nothing", .[]},
+	.{"water", .[]},
 	.{"integer in vbo (test)", .[]},
 	.{"watercolor", .[]},
 	.{"magic eye renderer", .["6th_platonic_solid.obj"]},

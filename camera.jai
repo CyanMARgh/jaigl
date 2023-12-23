@@ -39,14 +39,21 @@ get_transform :: (using cam : Camera, ws : Vector2) -> Matrix4 {
 	v, p := get_transform_v_p(cam, ws);
 	return p * v;
 }
-
+get_trandform_rp :: (using cam : Camera, ws : Vector2) -> Matrix4 {
+	rotate := rotation_matrix(Matrix4, 
+		Quaternion.{sin(-pitch / 2), 0, 0, cos(-pitch / 2)} * 
+		Quaternion.{0, sin(-yaw / 2), 0, cos(-yaw / 2)}
+	);
+	proj := make_projection_matrix(PI * .3, ws.x / ws.y, 0.1, 10000);
+	return proj * rotate;
+}
 get_transform_v_p :: (using cam : Camera, ws : Vector2) -> Matrix4, Matrix4 {
 	move := make_translation_matrix4(-position);
 	rotate := rotation_matrix(Matrix4, 
 		Quaternion.{sin(-pitch / 2), 0, 0, cos(-pitch / 2)} * 
 		Quaternion.{0, sin(-yaw / 2), 0, cos(-yaw / 2)}
 	);
-	proj := make_projection_matrix(PI * .3, ws.x / ws.y, 0.1, 100);
+	proj := make_projection_matrix(PI * .3, ws.x / ws.y, 0.1, 10000);
 
 	return rotate * move, proj;
 }

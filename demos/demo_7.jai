@@ -2,7 +2,7 @@ demo_7 :: () {
 	width, height : s32 = 1920, 1080;
 	max_nodes : u32 = xx(width * height * 20);
 
-	RENDER_VIDEO :: false;
+	RENDER_VIDEO :: true;
 
 	mesh_particles := concat(
 		gen_tree(2, .{0,  1}),
@@ -41,7 +41,7 @@ demo_7 :: () {
 	shader_reset := make_shader_c(SRC_OIT_CLEAR_COMP, 8, 4, 1); defer clear_shader(*shader_reset);
 
 	#if RENDER_VIDEO {
-		ffmpeg := ffmpeg_start_rendering(width, height, filename = "demo_7_vb2500.mp4", path = "screenshots", bitrate = 2500, length_seconds = 5);
+		ffmpeg := ffmpeg_start_rendering(width, height, filename = "demo_7_vb10000.mp4", path = "screenshots", bitrate = 10000, length_seconds = 20);
 		defer ffmpeg_end_rendering(*ffmpeg);				
 	} else {
 		time := current_time_monotonic();

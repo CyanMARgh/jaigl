@@ -4,7 +4,7 @@ demo_4 :: () {
 
 	RENDER_VIDEO :: true;
 
-	window := create_window(width, height, "advanced particles"); defer close_window(window);
+	window := create_window(width, height, "particle system"); defer close_window(window);
 	saved_window_info : Saved_Window_Info;	
 	ok:, width, height = toggle_fullscreen(window, true, *saved_window_info);
 
@@ -27,7 +27,7 @@ demo_4 :: () {
 	spawn();
 
 	#if RENDER_VIDEO {
-		ffmpeg := ffmpeg_start_rendering(width, height, filename = "demo_4.mp4", path = "screenshots", bitrate = 5000, length_seconds = 20);
+		ffmpeg := ffmpeg_start_rendering(width, height, filename = "demo_4.mp4", path = "screenshots", bitrate = 10000, length_seconds = 10);
 		defer ffmpeg_end_rendering(*ffmpeg);		
 	} else {
 		time := current_time_monotonic();

@@ -7,7 +7,7 @@ demo_3 :: () {
 	prepare(*mesh_raw_soa);
 	defer clear_mesh_raw(mesh_raw_soa);
 
-	window := create_window(width, height, "order independent transparency"); defer close_window(window);
+	window := create_window(width, height, "order independent transparency(slow)"); defer close_window(window);
 	win_state : Win_State;
 	simp.set_render_target(window);
 	camera : Camera;

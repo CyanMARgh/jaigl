@@ -4,7 +4,7 @@ Texture :: struct {
 	format : GLenum;
 }
 
-make_texture :: (width : u32, height : u32, format : GLenum, params : []GLenum, src : *u8 = null, src_channels :u32= GL_RGBA, src_data_type :u32= GL_UNSIGNED_BYTE, mipmap := false, storage := false) -> Texture {
+make_texture :: (width : u32, height : u32, format : GLenum, params : []GLenum, src : *u8 = null, src_channels :u32= GL_RGBA, src_data_type :u32= GL_UNSIGNED_BYTE, mipmap := false) -> Texture {
 	result := Texture.{width = width, height = height, format = format};
 
 	glGenTextures(1, *result.id);
@@ -12,11 +12,7 @@ make_texture :: (width : u32, height : u32, format : GLenum, params : []GLenum, 
 		for i : 0..params.count/2 - 1 {
 			glTexParameteri(GL_TEXTURE_2D, xx params[i * 2], xx params[i * 2 + 1]);
 		}
-		if storage {
-			glTextureStorage2D(result.id, 1, xx format, width, height);
-		} else {
-			glTexImage2D(GL_TEXTURE_2D, 0, xx format, xx width, xx height, 0, src_channels, src_data_type, src);
-		}
+		glTexImage2D(GL_TEXTURE_2D, 0, xx format, xx width, xx height, 0, src_channels, src_data_type, src);
 		if mipmap glGenerateMipmap(GL_TEXTURE_2D);
 	glBindTexture(GL_TEXTURE_2D, 0);
 
@@ -73,5 +69,5 @@ make_storage :: (width : u32, height : u32, format : GLenum) -> Texture {
 		GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE,
 		GL_TEXTURE_MIN_FILTER, GL_NEAREST,
 		GL_TEXTURE_MAG_FILTER, GL_NEAREST
-	 ], storage = true);
+	 ]);
 }

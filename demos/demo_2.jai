@@ -1,13 +1,13 @@
 demo_2 :: () {
-	RENDER_VIDEO :: false;
+	RENDER_VIDEO :: true;
 
-	// width, height : s32 = 1920, 1080; 
-	width, height : s32 = 1280, 720; 
+	width, height : s32 = 1920, 1080; 
+	// width, height : s32 = 1280, 720; 
 
 	window := create_window(width, height, "magnetic pendulum fractal"); defer close_window(window);
 	ok : bool;
 	saved_window_info : Saved_Window_Info;	
-	// ok, width, height = toggle_fullscreen(window, true, *saved_window_info);
+	ok, width, height = toggle_fullscreen(window, true, *saved_window_info);
 
 	win_state : Win_State;
 	simp.set_render_target(window);
@@ -26,7 +26,7 @@ demo_2 :: () {
 	print("\n\n");
 
 	#if RENDER_VIDEO {
-		ffmpeg := ffmpeg_start_rendering(width, height, filename = "demo_2.mp4", path = "screenshots", bitrate = 5000, length_seconds = 5);
+		ffmpeg := ffmpeg_start_rendering(width, height, filename = "demo_2.mp4", path = "screenshots", bitrate = 10000, length_seconds = 10);
 		defer ffmpeg_end_rendering(*ffmpeg);		
 	} else {
 		time := current_time_monotonic();
